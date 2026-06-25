@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Yummy.Core\Yummy.Core.csproj" />
+    <ProjectReference Include="..\Yummy.Entity\Yummy.Entity.csproj" />
+  </ItemGroup>
+
 </Project>
