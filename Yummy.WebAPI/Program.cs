@@ -34,6 +34,11 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
 
+builder.Services.AddAutoMapper(cfg =>
+{
+    cfg.AddMaps(typeof(Yummy.Business.Mapping.CategoryMapping).Assembly);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
