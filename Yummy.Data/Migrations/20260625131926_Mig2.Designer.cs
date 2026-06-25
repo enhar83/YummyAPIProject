@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Yummy.Data.Context;
 
@@ -11,9 +12,11 @@ using Yummy.Data.Context;
 namespace Yummy.Data.Migrations
 {
     [DbContext(typeof(YummyDbContext))]
-    partial class YummyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260625131926_Mig2")]
+    partial class Mig2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
