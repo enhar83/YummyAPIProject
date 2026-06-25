@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
@@ -38,6 +40,9 @@ builder.Services.AddAutoMapper(cfg =>
 {
     cfg.AddMaps(typeof(Yummy.Business.Mapping.CategoryMapping).Assembly);
 });
+
+builder.Services.AddFluentValidationAutoValidation(); 
+builder.Services.AddValidatorsFromAssembly(typeof(Yummy.Business.Validators.CategoryValidators.CategoryCreateValidator).Assembly);
 
 var app = builder.Build();
 
