@@ -12,8 +12,8 @@ namespace Yummy.Core.Services
     {
         Task<IEnumerable<CategoryResponseDto>> GetAllAsync();
         Task<CategoryResponseDto?> GetByIdAsync(Guid id);
-        Task AddAsync(CategoryCreateDto categoryCreateDto);
-        Task UpdateAsync(CategoryUpdateDto categoryUpdateDto);
+        Task AddAsync(CategoryCreateDto dto);
+        Task UpdateAsync(CategoryUpdateDto dto);
         Task DeleteAsync(Guid id);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
-using Yummy.Core.DTOs.CategoryDTOs; 
+using Yummy.Core.DTOs.CategoryDTOs;
+using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
@@ -11,7 +12,7 @@ namespace Yummy.Business.Managers
     {
         private readonly IGenericRepository<Category> _categoryRepository;
         private readonly IUnitOfWork _uow;
-        private readonly IMapper _mapper; 
+        private readonly IMapper _mapper;
 
         public CategoryManager(IGenericRepository<Category> categoryRepository, IUnitOfWork uow, IMapper mapper)
         {
@@ -30,12 +31,21 @@ namespace Yummy.Business.Managers
         public async Task<CategoryResponseDto?> GetByIdAsync(Guid id)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
+            if (category == null)
+                throw new LogicException("CategoryId", "Aradığınız kategori bulunamadı.");
+
             return _mapper.Map<CategoryResponseDto>(category);
         }
 
         public async Task AddAsync(CategoryCreateDto dto)
         {
             var category = _mapper.Map<Category>(dto);
+
+            var isNameExist = await _categoryRepository.GetSingleAsync(x => x.CategoryName.ToLower() == dto.CategoryName.ToLower());
+            if (isNameExist != null)
+                throw new LogicException("CategoryName", "Bu kategori ismi zaten sistemde kullanılıyor.");
+
+            category.CategoryId = Guid.NewGuid();
 
             await _categoryRepository.AddAsync(category);
             await _uow.SaveAsync();
@@ -44,23 +54,33 @@ namespace Yummy.Business.Managers
         public async Task UpdateAsync(CategoryUpdateDto dto)
         {
             var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
-            if (category != null)
-            {
-                _mapper.Map(dto, category);
+            if (category == null)
+                throw new LogicException("CategoryId", "Güncellenmek istenen kategori bulunamadı.");
 
-                _categoryRepository.Update(category);
-                await _uow.SaveAsync();
-            }
+            if (category.CategoryName.Trim().ToLower() == dto.CategoryName.Trim().ToLower())
+                throw new LogicException("CategoryName", "Yeni kategori ismi, eski isimle tamamen aynı olamaz. Lütfen farklı bir isim belirleyin.");
+
+            var isNameExist = await _categoryRepository.GetSingleAsync(x =>
+                x.CategoryName.ToLower() == dto.CategoryName.ToLower() &&
+                x.CategoryId != dto.CategoryId);
+
+            if (isNameExist != null)
+                throw new LogicException("CategoryName", "Bu kategori ismi zaten sistemde kullanılıyor.");
+
+            _mapper.Map(dto, category);
+            _categoryRepository.Update(category);
+            await _uow.SaveAsync();
         }
 
         public async Task DeleteAsync(Guid id)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
-            if (category != null)
-            {
-                _categoryRepository.Remove(category);
-                await _uow.SaveAsync();
-            }
+            if (category == null)
+                throw new LogicException("CategoryId", "Silinmek istenen kategori bulunamadı.");
+
+            _categoryRepository.Remove(category);
+            await _uow.SaveAsync();
+
         }
     }
 }
