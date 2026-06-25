@@ -13,9 +13,9 @@ namespace Yummy.Business.Mapping
     {
         public CategoryMapping() 
         {
-            CreateMap<Category, CategoryResponseDto>().ReverseMap();
-            CreateMap<Category, CategoryCreateDto>().ReverseMap();
-            CreateMap<Category, CategoryUpdateDto>().ReverseMap();
+            CreateMap<Category, CategoryResponseDto>();
+            CreateMap<CategoryCreateDto, Category>();
+            CreateMap<CategoryUpdateDto,Category>();
         }
     }
 }
