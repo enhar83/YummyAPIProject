@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
+using Yummy.Core.Services;
 using Yummy.Data;
 using Yummy.Data.Context;
 using Yummy.Data.Repositories;
@@ -27,8 +29,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatil olarak bir GenericRepository<T> oluþtur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddScoped<ICategoryService, CategoryManager>();
 
 var app = builder.Build();
 
