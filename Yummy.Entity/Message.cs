@@ -14,7 +14,7 @@ namespace Yummy.Entity
         public string Email { get; set; } = null!;
         public string Subject { get; set; } = null!;
         public string MessageDetails { get; set; } = null!;
-        public DateTime SendDate { get; set; } 
+        public DateTime SendDate { get; set; } = DateTime.Now;
         public bool IsRead { get; set; }
     }
 }
