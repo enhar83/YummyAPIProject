@@ -1,6 +1,22 @@
+using Microsoft.EntityFrameworkCore;
+using Yummy.Data.Context;
+using Yummy.Entity;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<YummyDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+builder.Services.AddIdentityCore<AppUser>(options => {
+    options.Password.RequireDigit = false; 
+    options.Password.RequiredLength = 6;
+})
+.AddRoles<AppRole>()
+.AddEntityFrameworkStores<YummyDbContext>();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
