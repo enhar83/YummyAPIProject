@@ -9,6 +9,7 @@ using Yummy.Data;
 using Yummy.Data.Context;
 using Yummy.Data.Repositories;
 using Yummy.Entity;
+using Yummy.WebAPI.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +58,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+app.UseMiddleware<GlobalExceptionMiddleware>(); 
 app.MapControllers();
 
 app.Run();

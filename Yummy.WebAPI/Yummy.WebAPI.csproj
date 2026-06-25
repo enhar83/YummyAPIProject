@@ -19,10 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Yummy.Business\Yummy.Business.csproj" />
     <ProjectReference Include="..\Yummy.Core\Yummy.Core.csproj" />
     <ProjectReference Include="..\Yummy.Data\Yummy.Data.csproj" />
