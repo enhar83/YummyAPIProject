@@ -16,5 +16,7 @@ namespace Yummy.Entity
         public string MessageDetails { get; set; } = null!;
         public DateTime SendDate { get; set; } = DateTime.Now;
         public bool IsRead { get; set; }
+        public Guid AppUserId { get; set; }
+        public AppUser AppUser { get; set; } = null!;
     }
 }

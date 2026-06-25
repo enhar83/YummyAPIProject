@@ -10,5 +10,6 @@ namespace Yummy.Entity
     {
         public Guid CategoryId { get; set; }
         public string CategoryName { get; set; } = null!;
+        public ICollection<Product> Products { get; set; } = new HashSet<Product>();
     }
 }

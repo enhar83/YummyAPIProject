@@ -18,5 +18,7 @@ namespace Yummy.Entity
         public int NumberOfGuests { get; set; }
         public string Message { get; set; } = null!;
         public string ReservationStatus { get; set; } = null!;
+        public Guid AppUserId { get; set; }
+        public AppUser AppUser { get; set; } = null!;
     }
 }
