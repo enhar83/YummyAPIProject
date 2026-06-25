@@ -1,5 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Yummy.Core.IRepositories;
+using Yummy.Core.IUnitOfWork;
+using Yummy.Data;
 using Yummy.Data.Context;
+using Yummy.Data.Repositories;
 using Yummy.Entity;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +26,9 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 var app = builder.Build();
 
