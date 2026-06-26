@@ -7,9 +7,12 @@ using Microsoft.AspNetCore.Http;
 
 namespace Yummy.Core.DTOs.ChefDTOs
 {
-    public record ChefCreateDto(string Name,
-        string Surname,
-        string Title,
-        string Description,
-        IFormFile? Image);
+    public record ChefCreateDto
+    {
+        public string Name { get; init; } = null!;
+        public string Surname { get; init; } = null!;
+        public string Title { get; init; } = null!;
+        public string Description { get; init; } = null!;
+        public IFormFile? Image { get; init; }
+    }
 }

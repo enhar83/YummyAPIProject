@@ -7,11 +7,12 @@ using Microsoft.AspNetCore.Http;
 
 namespace Yummy.Core.DTOs.ProductDTOs
 {
-    public record ProductCreateDto(
-        string ProductName,
-        string ProductDescription,
-        decimal Price,
-        IFormFile? Image,
-        Guid CategoryId
-    );
+    public record ProductCreateDto
+    {
+        public string ProductName { get; init; } = null!;
+        public string ProductDescription { get; init; } = null!;
+        public decimal Price { get; init; }
+        public IFormFile? Image { get; init; }
+        public Guid CategoryId { get; init; }
+    }
 }

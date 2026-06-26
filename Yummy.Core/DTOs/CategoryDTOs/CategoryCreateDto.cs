@@ -6,5 +6,8 @@ using System.Threading.Tasks;
 
 namespace Yummy.Core.DTOs.CategoryDTOs
 {
-    public record CategoryCreateDto(string CategoryName);
+    public record CategoryCreateDto
+    {
+        public string CategoryName { get; init; } = null!;
+    }
 }

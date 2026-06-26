@@ -7,10 +7,13 @@ using Microsoft.AspNetCore.Http;
 
 namespace Yummy.Core.DTOs.ChefDTOs
 {
-    public record ChefUpdateDto(Guid ChefId,
-        string Name,
-        string Surname,
-        string Title,
-        string Description,
-        IFormFile? Image);
+    public record ChefUpdateDto
+    {
+        public Guid ChefId { get; init; }
+        public string Name { get; init; } = null!;
+        public string Surname { get; init; } = null!;
+        public string Title { get; init; } = null!;
+        public string Description { get; init; } = null!;
+        public IFormFile? Image { get; init; }
+    }
 }

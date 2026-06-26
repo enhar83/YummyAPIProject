@@ -32,7 +32,12 @@ namespace Yummy.WebAPI.Middlewares
                 else
                 {
                     context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                    var response = new { Message = "Sunucu tarafında beklenmeyen bir hata oluştu." };
+                    var response = new
+                    {
+                        Message = ex.Message,
+                        Detail = ex.InnerException != null ? ex.InnerException.Message : "Detay yok"
+                    };
+
                     await context.Response.WriteAsync(JsonSerializer.Serialize(response));
                 }
             }
