@@ -21,8 +21,16 @@ namespace Yummy.Data.Repositories
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync() =>
-            await _dbSet.ToListAsync();
+        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.ToListAsync();
+        }
 
         public async Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate) =>
             await _dbSet.Where(predicate).ToListAsync();
@@ -30,8 +38,16 @@ namespace Yummy.Data.Repositories
         public async Task<T?> GetByIdAsync(Guid id) =>
             await _dbSet.FindAsync(id);
 
-        public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate) =>
-            await _dbSet.FirstOrDefaultAsync(predicate);
+        public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.FirstOrDefaultAsync(predicate);
+        }
 
         public async Task AddAsync(T entity) =>
             await _dbSet.AddAsync(entity);

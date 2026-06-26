@@ -41,7 +41,7 @@ namespace Yummy.Business.Managers
         {
             var category = _mapper.Map<Category>(dto);
 
-            var isNameExist = await _categoryRepository.GetSingleAsync(x => x.CategoryName.ToLower() == dto.CategoryName.ToLower());
+            var isNameExist = await _categoryRepository.GetSingleAsync(c => c.CategoryName.ToLower() == dto.CategoryName.ToLower());
             if (isNameExist != null)
                 throw new LogicException("CategoryName", "Bu kategori ismi zaten sistemde kullanılıyor.");
 
@@ -56,9 +56,6 @@ namespace Yummy.Business.Managers
             var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
             if (category == null)
                 throw new LogicException("CategoryId", "Güncellenmek istenen kategori bulunamadı.");
-
-            if (category.CategoryName.Trim().ToLower() == dto.CategoryName.Trim().ToLower())
-                throw new LogicException("CategoryName", "Yeni kategori ismi, eski isimle tamamen aynı olamaz. Lütfen farklı bir isim belirleyin.");
 
             var isNameExist = await _categoryRepository.GetSingleAsync(x =>
                 x.CategoryName.ToLower() == dto.CategoryName.ToLower() &&

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace Yummy.Core.DTOs.ProductDTOs
 {
@@ -10,7 +11,7 @@ namespace Yummy.Core.DTOs.ProductDTOs
         string ProductName,
         string ProductDescription,
         decimal Price,
-        string ImageUrl,
+        IFormFile? Image,
         Guid CategoryId
     );
 }

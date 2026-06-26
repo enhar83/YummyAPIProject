@@ -37,6 +37,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
 builder.Services.AddScoped<IChefService, ChefManager>();
+builder.Services.AddScoped<IProductService, ProductManager>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
