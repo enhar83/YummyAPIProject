@@ -32,7 +32,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatil olarak bir GenericRepository<T> oluþtur demektir. 
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluþtur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
@@ -55,6 +55,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseStaticFiles(); //IWebHostEnvironment'in çalýþmasý için. 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
