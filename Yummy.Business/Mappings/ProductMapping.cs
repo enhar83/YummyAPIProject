@@ -4,21 +4,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
-using Yummy.Core.DTOs.ChefDTOs;
+using Yummy.Core.DTOs.ProductDTOs;
 using Yummy.Entity;
 
 namespace Yummy.Business.Mappings
 {
-    public class ChefMapping : Profile
+    public class ProductMapping : Profile
     {
-        public ChefMapping()
+        public ProductMapping()
         {
-            CreateMap<Chef, ChefResponseDto>().ReverseMap();
+            CreateMap<Product, ProductResponseDto>()
+                .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.CategoryName));
 
-            CreateMap<ChefCreateDto, Chef>()
+            CreateMap<ProductCreateDto, Product>()
                 .ForMember(dest => dest.ImageUrl, opt => opt.Ignore());
 
-            CreateMap<ChefUpdateDto, Chef>()
+            CreateMap<ProductUpdateDto, Product>()
                 .ForMember(dest => dest.ImageUrl, opt => opt.Ignore());
         }
     }
