@@ -29,6 +29,11 @@ namespace Yummy.Business.Validators.AppUserValidators
                 .NotEmpty().WithMessage("E-posta adresi boş geçilemez.")
                 .EmailAddress().WithMessage("Lütfen geçerli bir e-posta adresi giriniz.");
 
+            RuleFor(x => x.PhoneNumber)
+                .NotEmpty().WithMessage("Telefon numarası boş geçilemez.")
+                .Matches(@"^(\+90|0)?5[0-9]{9}$")
+                .WithMessage("Lütfen geçerli bir cep telefonu numarası giriniz. (Örn: 05321234567)");
+
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("Şifre boş geçilemez.")
                 .MinimumLength(6).WithMessage("Şifre en az 6 karakter olmalıdır.");
