@@ -44,6 +44,7 @@ builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IContactService, ContactManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
 builder.Services.AddScoped<IEmailService, EmailManager>();
+builder.Services.AddScoped<IAppUserService, AppUserManager>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
