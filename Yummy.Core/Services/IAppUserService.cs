@@ -10,5 +10,6 @@ namespace Yummy.Core.Services
     public interface IAppUserService
     {
         Task RegisterAsync(AppUserRegisterDto dto);
+        Task VerifyEmailAsync(VerifyEmailDto dto);
     }
 }

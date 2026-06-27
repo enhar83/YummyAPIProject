@@ -63,5 +63,28 @@ namespace Yummy.Business.Managers
             var subject = "Yummy Restoran - Hesabınızı Doğrulayın";
             await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
         }
+
+        public async Task VerifyEmailAsync(VerifyEmailDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
+
+            if (user.EmailConfirmed)
+                throw new LogicException("AlreadyVerified", "Bu hesap zaten daha önce doğrulanmış. Giriş yapabilirsiniz.");
+
+            if (user.ActivationCode != dto.ActivationCode.Trim().ToUpper())
+                throw new LogicException("InvalidCode", "Girdiğiniz aktivasyon kodu hatalı veya süresi dolmuş. Lütfen kontrol edin.");
+
+            user.EmailConfirmed = true;
+            user.ActivationCode = null;
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("VerifyError", errors);
+            }
+        }
     }
 }
