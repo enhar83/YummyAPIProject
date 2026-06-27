@@ -8,10 +8,10 @@ namespace Yummy.Core.DTOs.ContactDTOs
 {
     public class ContactCreateDto
     {
-        public string MapLocation { get; set; } = null!;
-        public string Email { get; set; } = null!;
-        public string Address { get; set; } = null!;
-        public string Phone { get; set; } = null!;
-        public string OpenHours { get; set; } = null!;
+        public string MapLocation { get; init; } = null!;
+        public string Email { get; init; } = null!;
+        public string Address { get; init; } = null!;
+        public string Phone { get; init; } = null!;
+        public string OpenHours { get; init; } = null!;
     }
 }
