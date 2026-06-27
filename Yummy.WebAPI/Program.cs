@@ -5,6 +5,7 @@ using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
+using Yummy.Core.Settings;
 using Yummy.Data;
 using Yummy.Data.Context;
 using Yummy.Data.Repositories;
@@ -32,6 +33,8 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluþtur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -40,6 +43,7 @@ builder.Services.AddScoped<IChefService, ChefManager>();
 builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IContactService, ContactManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
+builder.Services.AddScoped<IEmailService, EmailManager>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
