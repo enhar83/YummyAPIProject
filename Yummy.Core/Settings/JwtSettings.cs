@@ -12,5 +12,6 @@ namespace Yummy.Core.Settings
         public string Issuer { get; init; } = null!;   
         public int AccessTokenExpiration { get; init; } 
         public string SecurityKey { get; init; } = null!;
+
     }
 }
