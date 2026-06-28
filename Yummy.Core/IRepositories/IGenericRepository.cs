@@ -17,5 +17,6 @@ namespace Yummy.Core.IRepositories
         void Update(T entity);
         void Remove(T entity);
         IQueryable<T> GetAsQueryable();
+        Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
     }
 }

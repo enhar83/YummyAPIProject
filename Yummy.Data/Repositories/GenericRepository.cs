@@ -59,5 +59,8 @@ namespace Yummy.Data.Repositories
             _dbSet.Remove(entity);
 
         public IQueryable<T> GetAsQueryable() => _dbSet.AsQueryable();
+
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate) =>
+            await _dbSet.AnyAsync(predicate);
     }
 }
