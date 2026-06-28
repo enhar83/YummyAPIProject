@@ -11,5 +11,7 @@ namespace Yummy.Core.Services
     {
         Task RegisterAsync(AppUserRegisterDto dto);
         Task VerifyEmailAsync(VerifyEmailDto dto);
+        Task ForgotPasswordAsync(ForgotPasswordDto dto);
+        Task ResetPasswordAsync(ResetPasswordDto dto);
     }
 }

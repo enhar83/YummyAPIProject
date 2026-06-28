@@ -86,5 +86,45 @@ namespace Yummy.Business.Managers
                 throw new LogicException("VerifyError", errors);
             }
         }
+
+        public async Task ForgotPasswordAsync(ForgotPasswordDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailResetPasswordTemplate.html");
+            if (!File.Exists(templatePath))
+            {
+                throw new LogicException("TemplateError", "Şifre sıfırlama şablonu bulunamadı.");
+            }
+
+            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", user.Name)
+                .Replace("{{Surname}}", user.Surname) 
+                .Replace("{{Token}}", token); 
+
+            var subject = "Yummy Restoran - Şifre Sıfırlama Talebi";
+
+            await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
+
+            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("ResetPasswordError", errors);
+            }
+        }
     }
 }
