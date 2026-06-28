@@ -38,6 +38,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("JwtSettings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluþtur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -49,6 +50,7 @@ builder.Services.AddScoped<IContactService, ContactManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
 builder.Services.AddScoped<IEmailService, EmailManager>();
 builder.Services.AddScoped<IAppUserService, AppUserManager>();
+builder.Services.AddScoped<IJwtService, JwtManager>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
