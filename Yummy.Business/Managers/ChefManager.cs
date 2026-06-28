@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.ChefDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -55,8 +57,9 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ChefResponseDto>> GetAllAsync()
         {
-            var chefs = await _chefRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<ChefResponseDto>>(chefs);
+            return await _chefRepository.GetAsQueryable()
+                .ProjectTo<ChefResponseDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
         }
 
         public async Task<ChefResponseDto?> GetByIdAsync(Guid id)

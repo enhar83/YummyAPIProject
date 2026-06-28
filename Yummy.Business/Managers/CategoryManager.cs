@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Yummy.Core.DTOs.CategoryDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Entity;
 
 namespace Yummy.Business.Managers
@@ -24,8 +26,9 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<CategoryResponseDto>> GetAllAsync()
         {
-            var categories = await _categoryRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<CategoryResponseDto>>(categories);
+            return await _categoryRepository.GetAsQueryable()
+                .ProjectTo<CategoryResponseDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
         }
 
         public async Task<CategoryResponseDto?> GetByIdAsync(Guid id)
@@ -41,8 +44,8 @@ namespace Yummy.Business.Managers
         {
             var category = _mapper.Map<Category>(dto);
 
-            var isNameExist = await _categoryRepository.GetSingleAsync(c => c.CategoryName.ToLower() == dto.CategoryName.ToLower());
-            if (isNameExist != null)
+            bool isNameExist = await _categoryRepository.AnyAsync(c => c.CategoryName == dto.CategoryName);
+            if (isNameExist)
                 throw new LogicException("CategoryName", "Bu kategori ismi zaten sistemde kullanılıyor.");
 
             category.CategoryId = Guid.NewGuid();
@@ -57,11 +60,11 @@ namespace Yummy.Business.Managers
             if (category == null)
                 throw new LogicException("CategoryId", "Güncellenmek istenen kategori bulunamadı.");
 
-            var isNameExist = await _categoryRepository.GetSingleAsync(x =>
-                x.CategoryName.ToLower() == dto.CategoryName.ToLower() &&
+            bool isNameExist = await _categoryRepository.AnyAsync(x =>
+                x.CategoryName == dto.CategoryName &&
                 x.CategoryId != dto.CategoryId);
 
-            if (isNameExist != null)
+            if (isNameExist)
                 throw new LogicException("CategoryName", "Bu kategori ismi zaten sistemde kullanılıyor.");
 
             _mapper.Map(dto, category);

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.ContactDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -29,8 +31,8 @@ namespace Yummy.Business.Managers
         public async Task AddAsync(ContactCreateDto dto)
         {
             var contact = _mapper.Map<Contact>(dto);
-            var isContactExist = await _contactRepository.GetSingleAsync(c => c.Address == dto.Address && c.Email == dto.Email && c.Phone == dto.Phone);
-            if (isContactExist != null)
+            bool isContactExist = await _contactRepository.AnyAsync(c => c.Address == dto.Address && c.Email == dto.Email && c.Phone == dto.Phone);
+            if (isContactExist)
                 throw new LogicException("ContactId", "Bu iletişim bilgileri zaten kullanılıyor.");
 
             contact.ContactId = Guid.NewGuid();
@@ -50,8 +52,9 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ContactResponseDto>> GetAllAsync()
         {
-            var contacts = await _contactRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<ContactResponseDto>>(contacts);
+            return await _contactRepository.GetAsQueryable()
+                .ProjectTo<ContactResponseDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
         }
 
         public async Task<ContactResponseDto?> GetByIdAsync(Guid id)
@@ -69,11 +72,11 @@ namespace Yummy.Business.Managers
             if (contact == null)
                 throw new LogicException("ContactId", "Bu iletişim bilgileri bulunamadı.");
 
-            var isContactExist = await _contactRepository.GetSingleAsync(c => c.Address == dto.Address &&
+            bool isContactExist = await _contactRepository.AnyAsync(c => c.Address == dto.Address &&
                 c.Email == dto.Email &&
                 c.Phone == dto.Phone &&
                 c.ContactId != dto.ContactId);
-            if (isContactExist != null)
+            if (isContactExist)
                 throw new LogicException("ContactId", "Bu iletişim bilgileri zaten kullanılıyor.");
 
             _mapper.Map(dto, contact);

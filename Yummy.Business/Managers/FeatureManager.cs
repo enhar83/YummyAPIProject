@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.FeatureDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -33,8 +35,8 @@ namespace Yummy.Business.Managers
         public async Task AddAsync(FeatureCreateDto dto)
         {
             var feature = _mapper.Map<Feature>(dto);
-            var isFeatureExist = await _featureRepository.GetSingleAsync(f => f.Title == dto.Title);
-            if (isFeatureExist != null)
+            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title);
+            if (isFeatureExist)
                 throw new LogicException("Title", "Bu başlık zaten sistem içerisinde kullanılıyor.");
 
             feature.FeatureId = Guid.NewGuid();
@@ -59,8 +61,9 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<FeatureResponseDto>> GetAllAsync()
         {
-            var features = await _featureRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<FeatureResponseDto>>(features);
+            return await _featureRepository.GetAsQueryable()
+                .ProjectTo<FeatureResponseDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
         }
 
         public async Task<FeatureResponseDto?> GetByIdAsync(Guid id)
@@ -78,8 +81,8 @@ namespace Yummy.Business.Managers
             if (feature == null)
                 throw new LogicException("FeatureId", "Güncellenmek istenen özelliğe ait Id bulunamadı.");
 
-            var isFeatureExist = await _featureRepository.GetSingleAsync(f => f.Title == dto.Title && f.FeatureId != dto.FeatureId);
-            if (isFeatureExist != null)
+            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title && f.FeatureId != dto.FeatureId);
+            if (isFeatureExist)
                 throw new LogicException("FeatureId", "Bu özellik başlığı zaten sistem içerisinde kullanılıyor.");
 
             _mapper.Map(dto, feature);

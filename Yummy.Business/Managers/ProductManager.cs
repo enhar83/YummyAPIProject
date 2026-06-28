@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.ProductDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -34,8 +36,8 @@ namespace Yummy.Business.Managers
         {
             var product = _mapper.Map<Product>(dto);
 
-            var productIsExist = await _productRepository.GetSingleAsync(p=> p.ProductName.ToLower() == dto.ProductName.ToLower());
-            if (productIsExist != null)
+            bool productIsExist = await _productRepository.AnyAsync(p=> p.ProductName == dto.ProductName);
+            if (productIsExist)
                 throw new LogicException("ProductName", "Bu ürün ismi zaten sistemde kullanılıyor.");
 
             product.ProductId = Guid.NewGuid();
@@ -60,8 +62,9 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ProductResponseDto>> GetAllAsync()
         {
-            var products = await _productRepository.GetAllAsync(p=>p.Category);
-            return _mapper.Map<IEnumerable<ProductResponseDto>>(products);
+            return await _productRepository.GetAsQueryable()
+                .ProjectTo<ProductResponseDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
         }
 
         public async Task<ProductResponseDto?> GetByIdAsync(Guid id)
@@ -79,8 +82,8 @@ namespace Yummy.Business.Managers
             if (product == null)
                 throw new LogicException("ProductId", "Güncellenmek istenen ürün bulunamadı.");
 
-            var productIsExist = await _productRepository.GetSingleAsync(p => p.ProductName.ToLower() == dto.ProductName.ToLower() && p.ProductId != dto.ProductId);
-            if (productIsExist != null)
+            bool productIsExist = await _productRepository.AnyAsync(p => p.ProductName == dto.ProductName && p.ProductId != dto.ProductId);
+            if (productIsExist)
                 throw new LogicException("ProductName", "Bu ürün ismi zaten sistemde kullanılıyor.");
 
             _mapper.Map(dto, product);
