@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
@@ -18,15 +19,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+builder.Services.AddDataProtection();
+
 builder.Services.AddDbContext<YummyDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddIdentityCore<AppUser>(options => {
-    options.Password.RequireDigit = false; 
+    options.Password.RequireDigit = false;
     options.Password.RequiredLength = 6;
 })
 .AddRoles<AppRole>()
-.AddEntityFrameworkStores<YummyDbContext>();
+.AddEntityFrameworkStores<YummyDbContext>()
+.AddDefaultTokenProviders(); 
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

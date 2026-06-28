@@ -97,9 +97,7 @@ namespace Yummy.Business.Managers
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailResetPasswordTemplate.html");
             if (!File.Exists(templatePath))
-            {
                 throw new LogicException("TemplateError", "Şifre sıfırlama şablonu bulunamadı.");
-            }
 
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
 
@@ -118,6 +116,10 @@ namespace Yummy.Business.Managers
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
                 throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
+
+            var isSameAsOldPassword = await _userManager.CheckPasswordAsync(user, dto.NewPassword);
+            if (isSameAsOldPassword)
+                throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
             var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
             if (!result.Succeeded)
