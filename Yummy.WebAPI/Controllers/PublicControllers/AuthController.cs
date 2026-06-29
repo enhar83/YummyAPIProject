@@ -43,5 +43,12 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             await _appUserService.ResetPasswordAsync(dto);
             return Ok(new { message = "Şifreniz başarıyla sıfırlandı. Artık yeni şifrenizle giriş yapabilirsiniz." });
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] AppUserLoginDto dto)
+        {
+            var token = await _appUserService.LoginAsync(dto);
+            return Ok(new { token });
+        }
     }
 }

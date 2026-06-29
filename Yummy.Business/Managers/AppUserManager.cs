@@ -137,6 +137,9 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı adı veya şifre yanlış.");
 
+            if (!user.EmailConfirmed)
+                throw new LogicException("EmailNotVerified", "Lütfen giriş yapmadan önce e-posta adresinize gönderilen kod ile hesabınızı doğrulayın.");
+
             var result = await _userManager.CheckPasswordAsync(user, dto.Password);
             if (!result)
                 throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
