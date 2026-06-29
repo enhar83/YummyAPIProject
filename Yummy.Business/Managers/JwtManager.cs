@@ -32,7 +32,8 @@ namespace Yummy.Business.Managers
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email ?? ""),
-                new Claim(ClaimTypes.Name, user.Name ?? ""),
+                new Claim(ClaimTypes.Name, $"{user.Name} {user.Surname}".Trim()),
+                new Claim("Username", user.UserName ?? ""),
                 new Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
