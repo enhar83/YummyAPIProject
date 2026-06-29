@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -107,6 +108,29 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecurityKey)),
         ClockSkew = TimeSpan.Zero
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = context =>
+        {
+            context.HandleResponse();
+
+            context.Response.StatusCode = 401;
+            context.Response.ContentType = "application/json";
+
+            var result = JsonSerializer.Serialize(new { message = "Lütfen iþlem yapabilmek için sisteme giriþ yapýnýz." });
+            return context.Response.WriteAsync(result);
+        },
+
+        OnForbidden = context =>
+        {
+            context.Response.StatusCode = 403;
+            context.Response.ContentType = "application/json";
+
+            var result = JsonSerializer.Serialize(new { message = "Bu alana eriþim saðlamak için gerekli yetkiye sahip deðilsiniz." });
+            return context.Response.WriteAsync(result);
+        }
     };
 });
 
