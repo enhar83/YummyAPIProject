@@ -51,7 +51,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(new
             {
                 message = "Başarıyla giriş yapıldı. Hoş geldiniz!",
-                token = token
+                token = "Bearer " + token
             });
         }
     }

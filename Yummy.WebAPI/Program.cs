@@ -70,6 +70,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("TokenSettings"));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluþtur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -77,7 +78,6 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
 builder.Services.AddScoped<IChefService, ChefManager>();
 builder.Services.AddScoped<IProductService, ProductManager>();
-builder.Services.AddScoped<IContactService, ContactManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
 builder.Services.AddScoped<IEmailService, EmailManager>();
 builder.Services.AddScoped<IAppUserService, AppUserManager>();
@@ -88,7 +88,7 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddMaps(typeof(Yummy.Business.Mapping.CategoryMapping).Assembly);
 });
 
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
+var jwtSettings = builder.Configuration.GetSection("TokenSettings").Get<JwtSettings>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
