@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.AppUserDTOs;
+using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers.PublicControllers
@@ -21,6 +24,17 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         {
             await _appUserService.RegisterAsync(dto);
             return Ok(new { message = "Kayıt işlemi başarılı. Lütfen e-posta adresinize gönderilen 6 haneli doğrulama kodunu kontrol edin." });
+        }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] AppUserLoginDto dto)
+        {
+            var token = await _appUserService.LoginAsync(dto);
+            return Ok(new
+            {
+                message = "Başarıyla giriş yapıldı. Hoş geldiniz!",
+                token = "Bearer " + token
+            });
         }
 
         [HttpPost("verify-email")]
@@ -44,15 +58,16 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(new { message = "Şifreniz başarıyla sıfırlandı. Artık yeni şifrenizle giriş yapabilirsiniz." });
         }
 
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] AppUserLoginDto dto)
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
         {
-            var token = await _appUserService.LoginAsync(dto);
-            return Ok(new
-            {
-                message = "Başarıyla giriş yapıldı. Hoş geldiniz!",
-                token = "Bearer " + token
-            });
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId","Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _appUserService.ChangePasswordAsync(userId, dto);
+            return Ok(new { message = "Şifreniz başarıyla değiştirildi." });
         }
     }
 }

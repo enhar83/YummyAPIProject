@@ -149,5 +149,23 @@ namespace Yummy.Business.Managers
             var token = _jwtService.CreateToken(user, roles);
             return token;
         }
+
+        public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            var isSameAsOldPassword = await _userManager.CheckPasswordAsync(user, dto.NewPassword);
+            if (isSameAsOldPassword)
+                throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
+
+            var result = await _userManager.ChangePasswordAsync(user, dto.OldPassword, dto.NewPassword);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("ChangePasswordError", errors);
+            }
+        }
     }
 }
