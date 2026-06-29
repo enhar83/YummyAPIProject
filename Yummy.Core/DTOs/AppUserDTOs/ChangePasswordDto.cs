@@ -6,10 +6,9 @@ using System.Threading.Tasks;
 
 namespace Yummy.Core.DTOs.AppUserDTOs
 {
-    public class ResetPasswordDto
+    public class ChangePasswordDto
     {
-        public string Email { get; init; } = null!;
-        public string Token { get; init; } = null!;
+        public string OldPassword { get; init; } = null!;
         public string NewPassword { get; init; } = null!;
         public string ConfirmNewPassword { get; init; } = null!;
     }
