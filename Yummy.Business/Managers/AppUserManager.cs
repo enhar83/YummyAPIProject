@@ -17,12 +17,14 @@ namespace Yummy.Business.Managers
         private readonly UserManager<AppUser> _userManager;
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
+        private readonly IJwtService _jwtService;
 
-        public AppUserManager(UserManager<AppUser> userManager, IMapper mapper, IEmailService emailService)
+        public AppUserManager(UserManager<AppUser> userManager, IMapper mapper, IEmailService emailService, IJwtService jwtService)
         {
             _userManager = userManager;
             _mapper = mapper;
             _emailService = emailService;
+            _jwtService = jwtService;
         }
 
         public async Task RegisterAsync(AppUserRegisterDto dto)
@@ -127,6 +129,22 @@ namespace Yummy.Business.Managers
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("ResetPasswordError", errors);
             }
+        }
+
+        public async Task<string> LoginAsync(AppUserLoginDto dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı adı veya şifre yanlış.");
+
+            var result = await _userManager.CheckPasswordAsync(user, dto.Password);
+            if (!result)
+                throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var token = _jwtService.CreateToken(user, roles);
+            return token;
         }
     }
 }

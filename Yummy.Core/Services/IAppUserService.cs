@@ -10,6 +10,7 @@ namespace Yummy.Core.Services
     public interface IAppUserService
     {
         Task RegisterAsync(AppUserRegisterDto dto);
+        Task<string> LoginAsync(AppUserLoginDto dto);
         Task VerifyEmailAsync(VerifyEmailDto dto);
         Task ForgotPasswordAsync(ForgotPasswordDto dto);
         Task ResetPasswordAsync(ResetPasswordDto dto);
