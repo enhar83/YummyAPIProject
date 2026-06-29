@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.ContactDTOs;
 using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
+    [Authorize]
     [Route("api/admin/contacts")]
     [ApiController]
     public class AdminContactsController : ControllerBase

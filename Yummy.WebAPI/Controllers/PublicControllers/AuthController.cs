@@ -48,7 +48,11 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         public async Task<IActionResult> Login([FromBody] AppUserLoginDto dto)
         {
             var token = await _appUserService.LoginAsync(dto);
-            return Ok(new { token });
+            return Ok(new
+            {
+                message = "Başarıyla giriş yapıldı. Hoş geldiniz!",
+                token = token
+            });
         }
     }
 }

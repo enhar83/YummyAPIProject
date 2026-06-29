@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.FeatureDTOs;
 using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
+    [Authorize]
     [Route("api/admin/features")]
     [ApiController]
     public class AdminFeaturesController : ControllerBase

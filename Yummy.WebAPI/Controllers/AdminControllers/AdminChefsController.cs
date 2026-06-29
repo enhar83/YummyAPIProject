@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.CategoryDTOs;
 using Yummy.Core.DTOs.ChefDTOs;
@@ -6,6 +7,7 @@ using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers
 {
+    [Authorize]
     [Route("api/admin/chefs")]
     [ApiController]
 
