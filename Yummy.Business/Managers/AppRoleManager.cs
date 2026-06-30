@@ -8,6 +8,7 @@ using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.AppRoleDTOs;
+using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
 using Yummy.Entity;
@@ -17,12 +18,14 @@ namespace Yummy.Business.Managers
     public class AppRoleManager : IAppRoleService
     {
         private readonly RoleManager<AppRole> _roleManager;
+        private readonly UserManager<AppUser> _userManager;
         private readonly IMapper _mapper;
 
-        public AppRoleManager(RoleManager<AppRole> roleManager, IMapper mapper)
+        public AppRoleManager(RoleManager<AppRole> roleManager,  IMapper mapper, UserManager<AppUser> userManager)
         {
             _roleManager = roleManager;
             _mapper = mapper;
+            _userManager = userManager;
         }
 
         public async Task CreateRoleAsync(AppRoleCreateDto dto)
@@ -63,6 +66,24 @@ namespace Yummy.Business.Managers
                 .ToListAsync();
 
             return roles;
+        }
+
+        public async Task<IEnumerable<AppUserListDto>> GetAllUsersInRoleAsync(Guid roleId)
+        {
+            var role = await _roleManager.FindByIdAsync(roleId.ToString());
+            if (role == null)
+                throw new LogicException("RoleNotFound", "Böyle bir rol bulunamadı.");
+
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
+            var userDtos = _mapper.Map<List<AppUserListDto>>(usersInRole);
+
+            for (int i = 0; i < usersInRole.Count; i++)
+            {
+                var roles = await _userManager.GetRolesAsync(usersInRole[i]);
+                userDtos[i].Roles = roles;
+            }
+
+            return userDtos;
         }
 
         public async Task UpdateRoleAsync(AppRoleUpdateDto dto)

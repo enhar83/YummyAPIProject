@@ -189,9 +189,7 @@ namespace Yummy.Business.Managers
                 foreach (var user in usersInRole)
                 {
                     if (userRolesMap.TryGetValue(user.Id, out var rolesList))
-                    {
                         rolesList.Add(roleName);
-                    }
                 }
             }
 

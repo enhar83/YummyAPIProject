@@ -45,5 +45,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             await _roleService.DeleteRoleAsync(id);
             return Ok(new { message = "Rol başarıyla silindi." });
         }
+
+        [HttpGet("users-in-role")]
+        public async Task<IActionResult> UsersInRole(Guid id)
+        {
+            var roles = await _roleService.GetAllUsersInRoleAsync(id);
+            return Ok(roles);
+        }
     }
 }
