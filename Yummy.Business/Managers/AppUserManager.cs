@@ -202,5 +202,35 @@ namespace Yummy.Business.Managers
 
             return userDtos;
         }
+
+        public async Task AssignRolesToUserAsync(AppUserAssignRoleDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(dto.UserId.ToString());
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı sistemde bulunamadı.");
+
+            var existingRoles = await _userManager.GetRolesAsync(user);
+
+            var rolesToAdd = dto.RoleNames
+                .Where(newRole => !existingRoles.Contains(newRole))
+                .ToList();
+
+            if (!rolesToAdd.Any())
+                throw new LogicException("NoNewRoles", "Seçilen roller kullanıcıda zaten mevcut, ekleyecek yeni bir rol bulunamadı.");
+
+            foreach (var roleName in rolesToAdd)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                    throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
+            }
+
+            var result = await _userManager.AddToRolesAsync(user, rolesToAdd);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("AssignRoleFailed", errors);
+            }
+        }
     }
 }

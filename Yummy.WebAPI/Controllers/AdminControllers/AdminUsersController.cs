@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
@@ -20,6 +21,13 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         {
             var users = await _appUserService.GetAllUsersAsync();
             return Ok(users);
+        }
+
+        [HttpPost("assign-roles")]
+        public async Task<IActionResult> AssignRoles([FromBody] AppUserAssignRoleDto dto)
+        {
+            await _appUserService.AssignRolesToUserAsync(dto);
+            return Ok(new { message = "Roller kullanıcıya başarıyla atandı." });
         }
     }
 }
