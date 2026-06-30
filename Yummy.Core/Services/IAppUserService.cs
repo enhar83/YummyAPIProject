@@ -15,5 +15,6 @@ namespace Yummy.Core.Services
         Task ForgotPasswordAsync(ForgotPasswordDto dto);
         Task ResetPasswordAsync(ResetPasswordDto dto);
         Task ChangePasswordAsync(string userId, ChangePasswordDto dto);
+        Task<IEnumerable<AppUserListDto>> GetAllUsersAsync();
     }
 }

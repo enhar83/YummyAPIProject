@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
@@ -15,13 +17,15 @@ namespace Yummy.Business.Managers
     public class AppUserManager : IAppUserService
     {
         private readonly UserManager<AppUser> _userManager;
+        private readonly RoleManager<AppRole> _roleManager;
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
 
-        public AppUserManager(UserManager<AppUser> userManager, IMapper mapper, IEmailService emailService, IJwtService jwtService)
+        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService)
         {
             _userManager = userManager;
+            _roleManager = roleManager;
             _mapper = mapper;
             _emailService = emailService;
             _jwtService = jwtService;
@@ -166,6 +170,37 @@ namespace Yummy.Business.Managers
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("ChangePasswordError", errors);
             }
+        }
+
+        public async Task<IEnumerable<AppUserListDto>> GetAllUsersAsync()
+        {
+            var userDtos = await _userManager.Users
+                .ProjectTo<AppUserListDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
+
+            var allRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+
+            var userRolesMap = userDtos.ToDictionary(u => u.Id, u => new List<string>());
+
+            foreach (var roleName in allRoles)
+            {
+                var usersInRole = await _userManager.GetUsersInRoleAsync(roleName);
+
+                foreach (var user in usersInRole)
+                {
+                    if (userRolesMap.TryGetValue(user.Id, out var rolesList))
+                    {
+                        rolesList.Add(roleName);
+                    }
+                }
+            }
+
+            foreach (var dto in userDtos)
+            {
+                dto.Roles = userRolesMap[dto.Id];
+            }
+
+            return userDtos;
         }
     }
 }
