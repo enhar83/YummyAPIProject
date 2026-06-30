@@ -7,7 +7,7 @@ using Yummy.Core.Services;
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
     [Route("api/admin/roles")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     public class AdminRolesController : ControllerBase
     {

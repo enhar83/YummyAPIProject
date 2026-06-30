@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Services;
@@ -6,6 +7,7 @@ using Yummy.Core.Services;
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
     [Route("api/admin/users")]
+    [Authorize(Roles = "Admin")]
     [ApiController]
     public class AdminUsersController : ControllerBase
     {
