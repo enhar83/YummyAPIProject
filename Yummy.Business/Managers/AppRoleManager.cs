@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.AppRoleDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
@@ -38,6 +40,15 @@ namespace Yummy.Business.Managers
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("RoleCreateFailed", errors);
             }   
+        }
+
+        public async Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync()
+        {
+            var roles = await _roleManager.Roles
+                .ProjectTo<AppRoleListDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
+
+            return roles;
         }
     }
 }

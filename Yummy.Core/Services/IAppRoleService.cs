@@ -10,5 +10,6 @@ namespace Yummy.Core.Services
     public interface IAppRoleService
     {
         Task CreateRoleAsync(AppRoleCreateDto dto);
+        Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync();
     }
 }

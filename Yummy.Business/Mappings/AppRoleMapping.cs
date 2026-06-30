@@ -14,6 +14,7 @@ namespace Yummy.Business.Mappings
         public AppRoleMapping() 
         {
             CreateMap<AppRoleCreateDto, AppRole>();
+            CreateMap<AppRole, AppRoleListDto>();
         }
     }
 }

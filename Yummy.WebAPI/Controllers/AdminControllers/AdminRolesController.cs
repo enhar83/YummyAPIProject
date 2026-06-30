@@ -18,6 +18,13 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             _roleService = roleService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            var roles = await _roleService.GetAllRolesAsync();
+            return Ok(roles);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateRole([FromBody] AppRoleCreateDto dto)
         {
