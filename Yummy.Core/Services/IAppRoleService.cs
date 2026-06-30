@@ -12,5 +12,6 @@ namespace Yummy.Core.Services
         Task CreateRoleAsync(AppRoleCreateDto dto);
         Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync();
         Task UpdateRoleAsync(AppRoleUpdateDto dto);
+        Task DeleteRoleAsync(Guid id);
     }
 }

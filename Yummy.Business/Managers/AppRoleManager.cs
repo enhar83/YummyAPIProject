@@ -42,6 +42,20 @@ namespace Yummy.Business.Managers
             }   
         }
 
+        public async Task DeleteRoleAsync(Guid id)
+        {
+            var role = await _roleManager.FindByIdAsync(id.ToString());
+            if (role == null)
+                throw new LogicException("RoleNotFound", "Silinmek istenen rol sistemde bulunamadı.");
+
+            var result = await _roleManager.DeleteAsync(role);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("RoleDeleteFailed", errors);
+            }
+        }
+
         public async Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync()
         {
             var roles = await _roleManager.Roles
