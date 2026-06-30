@@ -31,5 +31,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             await _roleService.CreateRoleAsync(dto);
             return Ok(new { message = "Rol başarıyla oluşturuldu." });
         }
+
+        [HttpPut]
+        public async Task<IActionResult> UpdateRole([FromBody] AppRoleUpdateDto dto)
+        {
+            await _roleService.UpdateRoleAsync(dto);
+            return Ok(new { message = "Rol başarıyla güncellendi." });
+        }
     }
 }

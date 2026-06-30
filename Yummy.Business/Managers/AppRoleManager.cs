@@ -50,5 +50,28 @@ namespace Yummy.Business.Managers
 
             return roles;
         }
+
+        public async Task UpdateRoleAsync(AppRoleUpdateDto dto)
+        {
+            var existingRole = await _roleManager.FindByIdAsync(dto.Id.ToString());
+            if (existingRole == null)
+                throw new LogicException("RoleNotFound", "Güncellenmek istenen rol sistemde bulunamadı.");
+
+            if (existingRole.Name != dto.Name)
+            {
+                var roleWithSameName = await _roleManager.FindByNameAsync(dto.Name!);
+                if (roleWithSameName != null)
+                    throw new LogicException("RoleExist", "Bu rol adı zaten sistemde başka bir rol tarafından kullanılmaktadır. Lütfen farklı bir isim belirleyin.");
+            }
+
+            _mapper.Map(dto, existingRole);
+
+            var result = await _roleManager.UpdateAsync(existingRole);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("RoleUpdateFailed", errors);
+            }
+        }
     }
 }
