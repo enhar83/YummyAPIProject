@@ -82,6 +82,7 @@ builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
 builder.Services.AddScoped<IEmailService, EmailManager>();
 builder.Services.AddScoped<IAppUserService, AppUserManager>();
+builder.Services.AddScoped<IAppRoleService, AppRoleManager>();
 builder.Services.AddScoped<IJwtService, JwtManager>();
 
 builder.Services.AddAutoMapper(cfg =>
