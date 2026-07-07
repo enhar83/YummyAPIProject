@@ -6,8 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
@@ -25,8 +28,9 @@ namespace Yummy.Business.Managers
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
         private readonly JwtSettings _jwtSettings;
+        private readonly IWebHostEnvironment _environment;
 
-        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IOptions<JwtSettings> jwtSettings)
+        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IOptions<JwtSettings> jwtSettings, IWebHostEnvironment environment)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -34,6 +38,7 @@ namespace Yummy.Business.Managers
             _emailService = emailService;
             _jwtService = jwtService;
             _jwtSettings = jwtSettings.Value;
+            _environment = environment;
         }
 
         public async Task RegisterAsync(AppUserRegisterDto dto)
@@ -330,7 +335,14 @@ namespace Yummy.Business.Managers
                     throw new LogicException("UsernameTaken", "Bu kullanıcı adı zaten kullanılıyor. Lütfen başka bir tane seçin.");
             }
 
+            var oldImageUrl = user.ImageUrl;
             _mapper.Map(dto, user);
+
+            if (dto.Image != null)
+                user.ImageUrl = await SaveFileAsync(dto.Image);
+            else
+                user.ImageUrl = oldImageUrl;
+
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
@@ -338,8 +350,12 @@ namespace Yummy.Business.Managers
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("UpdateProfileError", errors);
             }
+
+            if (dto.Image != null && !string.IsNullOrEmpty(oldImageUrl))
+                DeleteFile(oldImageUrl);
         }
 
+        #region Refresh Token İşlemleri
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[64];
@@ -347,5 +363,36 @@ namespace Yummy.Business.Managers
             rng.GetBytes(randomNumber);
             return Convert.ToBase64String(randomNumber);
         }
+        #endregion
+
+        #region Dosya İşlemleri
+        private async Task<string> SaveFileAsync(IFormFile file)
+        {
+            var uploadsFolder = Path.Combine(_environment.WebRootPath, "images", "user-images");
+            if (!Directory.Exists(uploadsFolder))
+                Directory.CreateDirectory(uploadsFolder);
+
+            var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(file.FileName);
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(fileStream);
+            }
+
+            return $"/images/user-images/{uniqueFileName}";
+        }
+
+        private void DeleteFile(string? imageUrl)
+        {
+            if (string.IsNullOrEmpty(imageUrl)) return;
+            var filePath = Path.Combine(_environment.WebRootPath, imageUrl.TrimStart('/'));
+
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+        #endregion
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace Yummy.Core.DTOs.AppUserDTOs
 {
@@ -11,6 +12,6 @@ namespace Yummy.Core.DTOs.AppUserDTOs
         public string Name { get; set; } = null!;
         public string Surname { get; set; } = null!;
         public string Username { get; set; } = null!;
-        public string? ImageUrl { get; set; }
+        public IFormFile? Image { get; set; }
     }
 }

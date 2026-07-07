@@ -11,10 +11,10 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
     [Route("api/profile")]
     [Authorize]
     [ApiController]
-    public class ProfileController : ControllerBase
+    public class ProfilesController : ControllerBase
     {
         private readonly IAppUserService _appUserService;
-        public ProfileController(IAppUserService appUserService)
+        public ProfilesController(IAppUserService appUserService)
         {
             _appUserService = appUserService;
         }
@@ -42,7 +42,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPut("update-profile")]
-        public async Task<IActionResult> UpdateProfile([FromBody] UpdateAppUserDto dto)
+        public async Task<IActionResult> UpdateProfile([FromForm] UpdateAppUserDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
