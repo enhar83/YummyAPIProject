@@ -19,6 +19,8 @@ namespace Yummy.Business.Mappings
             CreateMap<AppUser, AppUserListDto>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.Name} {src.Surname}"))
                 .ForMember(dest => dest.Roles, opt => opt.Ignore());
+
+            CreateMap<UpdateAppUserDto, AppUser>();
         }
     }
 }
