@@ -10,5 +10,6 @@ namespace Yummy.Core.Services
     public interface IReservationService
     {
         Task AddReservationAsync(string userId, ReservationCreateDto dto);
+        Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId);
     }
 }

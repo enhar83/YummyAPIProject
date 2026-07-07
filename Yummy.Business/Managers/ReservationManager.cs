@@ -57,5 +57,15 @@ namespace Yummy.Business.Managers
 
             await _emailService.SendEmailAsync(dto.Email, subject, mailBody);
         }
+
+        public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
+        {
+            if (!Guid.TryParse(userId, out Guid parsedUserId))
+                throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
+            var reservations = await _reservationRepository.GetWhereAsync(x => x.AppUserId == parsedUserId);
+
+            var reservationDtos = _mapper.Map<IEnumerable<PastReservationByUserDto>>(reservations);
+            return reservationDtos.OrderByDescending(x => x.ReservationDate);
+        }
     }
 }

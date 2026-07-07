@@ -34,5 +34,16 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
                 message = "Rezervasyon talebiniz başarıyla alındı. Detaylar e-posta adresinize gönderilmiştir."
             });
         }
+
+        [HttpGet("see-my-reservations")]
+        public async Task<IActionResult> SeeMyPastOrders()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            var reservations = await _reservationService.SeeMyPastReservationsAsync(userId);
+            return Ok(reservations);
+        }
     }
 }
