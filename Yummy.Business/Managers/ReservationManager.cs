@@ -7,6 +7,7 @@ using AutoMapper;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
+using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
 using Yummy.Entity;
 
@@ -15,12 +16,14 @@ namespace Yummy.Business.Managers
     public class ReservationManager : IReservationService
     {
         private readonly IGenericRepository<Reservation> _reservationRepository;
+        private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
 
-        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IMapper mapper, IEmailService emailService)
+        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService)
         {
             _reservationRepository = reservationRepository;
+            _uow = uow;
             _mapper = mapper;
             _emailService = emailService;
         }
@@ -33,7 +36,9 @@ namespace Yummy.Business.Managers
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz veya doğrulanamadı.");
 
             reservation.AppUserId = parsedUserId;
+
             await _reservationRepository.AddAsync(reservation);
+            await _uow.SaveAsync();
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationReceivedTemplate.html");
             if (!File.Exists(templatePath))
