@@ -307,6 +307,29 @@ namespace Yummy.Business.Managers
             };
         }
 
+        public async Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            if (user.UserName != dto.Username)
+            {
+                var isUsernameExist = await _userManager.FindByNameAsync(dto.Username);
+                if (isUsernameExist != null)
+                    throw new LogicException("UsernameTaken", "Bu kullanıcı adı zaten kullanılıyor. Lütfen başka bir tane seçin.");
+            }
+
+            _mapper.Map(dto, user);
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("UpdateProfileError", errors);
+            }
+        }
+
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[64];
