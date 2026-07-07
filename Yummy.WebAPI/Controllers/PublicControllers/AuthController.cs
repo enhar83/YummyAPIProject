@@ -54,35 +54,11 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(new { message = "Şifreniz başarıyla sıfırlandı. Artık yeni şifrenizle giriş yapabilirsiniz." });
         }
 
-        [Authorize]
-        [HttpPost("change-password")]
-        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
-
-            await _appUserService.ChangePasswordAsync(userId, dto);
-            return Ok(new { message = "Şifreniz başarıyla değiştirildi." });
-        }
-
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
         {
             var result = await _appUserService.RefreshTokenAsync(dto);
             return Ok(result);
-        }
-
-        [Authorize]
-        [HttpPut("update-profile")]
-        public async Task<IActionResult> UpdateProfile([FromBody] UpdateAppUserDto dto)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (userId == null)
-                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
-
-            await _appUserService.UpdateAppUserAsync(userId, dto);
-            return Ok(new { message = "Profiliniz başarıyla güncellendi." });
         }
     }
 }
