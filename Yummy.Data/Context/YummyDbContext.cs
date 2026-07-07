@@ -76,6 +76,10 @@ namespace Yummy.Data.Context
                 .HasForeignKey(t => t.AppUserId)
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<AppUser>()
+                .Property(x => x.RefreshToken)
+                .HasMaxLength(500);
             #endregion
         }
     }

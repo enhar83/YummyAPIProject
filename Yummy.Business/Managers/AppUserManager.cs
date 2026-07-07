@@ -208,7 +208,6 @@ namespace Yummy.Business.Managers
                 throw new LogicException("UserNotFound", "Kullanıcı sistemde bulunamadı.");
 
             var existingRoles = await _userManager.GetRolesAsync(user);
-
             var rolesToAdd = dto.RoleNames
                 .Where(newRole => !existingRoles.Contains(newRole))
                 .ToList();
@@ -228,6 +227,35 @@ namespace Yummy.Business.Managers
             {
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("AssignRoleFailed", errors);
+            }
+        }
+
+        public async Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(dto.UserId.ToString());
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı sistemde bulunamadı.");
+
+            var existingRoles = await _userManager.GetRolesAsync(user);
+            var rolesToRemove = dto.RoleNames
+                .Where(roleName => existingRoles.Contains(roleName))
+                .ToList();
+
+            if (!rolesToRemove.Any())
+                throw new LogicException("NoMatchingRoles", "Seçilen roller kullanıcıda mevcut değil, kaldırılacak bir rol bulunamadı.");
+
+            foreach (var roleName in rolesToRemove)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                    throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
+            }
+
+            var result = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("RemoveRoleFailed", errors);
             }
         }
     }

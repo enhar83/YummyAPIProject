@@ -15,6 +15,8 @@ namespace Yummy.Entity
         public bool IsDeleted { get; set; }
         public string? ActivationCode { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.Now;
+        public string? RefreshToken { get; set; }
+        public DateTime? RefreshTokenExpiryTime { get; set; }
         public ICollection<Message> Messages { get; set; } = new HashSet<Message>();
         public ICollection<Reservation> Reservations { get; set; } = new HashSet<Reservation>();
         public ICollection<Testimonial> Testimonials { get; set; } = new HashSet<Testimonial>();

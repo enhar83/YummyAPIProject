@@ -17,5 +17,6 @@ namespace Yummy.Core.Services
         Task ChangePasswordAsync(string userId, ChangePasswordDto dto);
         Task<IEnumerable<AppUserListDto>> GetAllUsersAsync();
         Task AssignRolesToUserAsync(AppUserAssignRoleDto dto);
+        Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto);
     }
 }
