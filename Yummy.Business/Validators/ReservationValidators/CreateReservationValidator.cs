@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -26,7 +27,9 @@ namespace Yummy.Business.Validators.ReservationValidators
                 .NotEmpty().WithMessage("Telefon numarası zorunludur.");
 
             RuleFor(x => x.ReservationDate)
-                .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Geçmiş bir tarihe rezervasyon yapılamaz.");
+                .NotEmpty().WithMessage("Rezervasyon tarihi boş bırakılamaz.")
+                .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Geçmiş bir tarihe rezervasyon yapılamaz.")
+                .LessThanOrEqualTo(DateTime.Today.AddMonths(1)).WithMessage("En fazla 1 ay (30 gün) sonrasına rezervasyon yapabilirsiniz.");
 
             RuleFor(x => x.ReservationTime)
                 .NotEmpty().WithMessage("Rezervasyon saati zorunludur.")
