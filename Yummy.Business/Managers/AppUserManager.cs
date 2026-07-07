@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
+using Yummy.Core.Settings;
 using Yummy.Entity;
 
 namespace Yummy.Business.Managers
@@ -21,14 +24,16 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
+        private readonly JwtSettings _jwtSettings;
 
-        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService)
+        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IOptions<JwtSettings> jwtSettings)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _mapper = mapper;
             _emailService = emailService;
             _jwtService = jwtService;
+            _jwtSettings = jwtSettings.Value;
         }
 
         public async Task RegisterAsync(AppUserRegisterDto dto)
@@ -135,7 +140,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task<string> LoginAsync(AppUserLoginDto dto)
+        public async Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
@@ -150,8 +155,22 @@ namespace Yummy.Business.Managers
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            var token = _jwtService.CreateToken(user, roles);
-            return token;
+            var accessToken = _jwtService.CreateToken(user, roles);
+            var refreshToken = GenerateRefreshToken();
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                throw new LogicException("LoginError", "Giriş yapılırken token güncellenemedi.");
+
+            return new RefreshTokenResponseDto
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                AccessTokenExpiryTime = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration)
+            };
         }
 
         public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto)
@@ -257,6 +276,43 @@ namespace Yummy.Business.Managers
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("RemoveRoleFailed", errors);
             }
+        }
+
+        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.RefreshToken == dto.RefreshToken);
+
+            if (user == null)
+                throw new LogicException("InvalidToken", "Geçersiz yenileme anahtarı.");
+
+            if (user.RefreshTokenExpiryTime <= DateTime.Now)
+                throw new LogicException("TokenExpired", "Oturum süreniz tamamen dolmuş. Lütfen tekrar giriş yapın.");
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var newAccessToken = _jwtService.CreateToken(user, roles);
+            var newRefreshToken = GenerateRefreshToken();
+
+            user.RefreshToken = newRefreshToken;
+            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+                throw new LogicException("RefreshError", "Yeni token oluşturulurken veritabanı güncellenemedi.");
+
+            return new RefreshTokenResponseDto
+            {
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+                AccessTokenExpiryTime = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration)
+            };
+        }
+
+        private string GenerateRefreshToken()
+        {
+            var randomNumber = new byte[64];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
         }
     }
 }

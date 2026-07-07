@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.JsonWebTokens; // YENİ NESİL KÜTÜPHANE
 using Microsoft.IdentityModel.Tokens;
 using Yummy.Core.Services;
 using Yummy.Core.Settings;
@@ -31,25 +28,34 @@ namespace Yummy.Business.Managers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Email, user.Email ?? ""),
-                new Claim(ClaimTypes.Name, $"{user.Name} {user.Surname}".Trim()),
-                new Claim("Username", user.UserName ?? ""),
-                new Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if (!string.IsNullOrEmpty(user.Email))
+                claims.Add(new Claim(ClaimTypes.Email, user.Email));
+
+            if (!string.IsNullOrEmpty(user.Name) && !string.IsNullOrEmpty(user.Surname))
+                claims.Add(new Claim(ClaimTypes.Name, $"{user.Name} {user.Surname}"));
+
+            if (!string.IsNullOrEmpty(user.UserName))
+                claims.Add(new Claim("Username", user.UserName));
 
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var token = new JwtSecurityToken(
-                issuer: _jwtSettings.Issuer,
-                audience: _jwtSettings.Audience,
-                claims: claims,
-                expires: DateTime.Now.AddMinutes(_jwtSettings.AccessTokenExpiration),
-                signingCredentials: credentials);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Issuer = _jwtSettings.Issuer,
+                Audience = _jwtSettings.Audience,
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.Now.AddMinutes(_jwtSettings.AccessTokenExpiration), 
+                SigningCredentials = credentials
+            };
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var handler = new JsonWebTokenHandler();
+            return handler.CreateToken(tokenDescriptor);
         }
     }
 }
