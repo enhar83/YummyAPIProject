@@ -13,9 +13,10 @@ namespace Yummy.Core.Services
         Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto);
         Task VerifyEmailAsync(VerifyEmailDto dto);
         Task ForgotPasswordAsync(ForgotPasswordDto dto);
+        Task<IEnumerable<AppUserListDto>> GetAllUsersAsync();
+        Task<AppUserListDto> GetUserByIdAsync(Guid id);
         Task ResetPasswordAsync(ResetPasswordDto dto);
         Task ChangePasswordAsync(string userId, ChangePasswordDto dto);
-        Task<IEnumerable<AppUserListDto>> GetAllUsersAsync();
         Task AssignRolesToUserAsync(AppUserAssignRoleDto dto);
         Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto);
         Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto);

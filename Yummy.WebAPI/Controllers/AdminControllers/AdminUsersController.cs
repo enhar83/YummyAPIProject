@@ -18,10 +18,17 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             _appUserService = appUserService;
         }
 
-        [HttpGet]
+        [HttpGet("user-list")]
         public async Task<IActionResult> GetAll()
         {
             var users = await _appUserService.GetAllUsersAsync();
+            return Ok(users);
+        }
+
+        [HttpGet("single-user")]
+        public async Task<IActionResult> GetById(Guid id)
+        {
+            var users = await _appUserService.GetUserByIdAsync(id);
             return Ok(users);
         }
 

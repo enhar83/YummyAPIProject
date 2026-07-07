@@ -225,6 +225,20 @@ namespace Yummy.Business.Managers
             return userDtos;
         }
 
+        public async Task<AppUserListDto> GetUserByIdAsync(Guid id)
+        {
+            var user = await _userManager.FindByIdAsync(id.ToString());
+            if (user == null)
+                throw new LogicException("UserNotFound", "Belirtilen ID'ye sahip kullanıcı bulunamadı.");
+
+            var userDto = _mapper.Map<AppUserListDto>(user);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            userDto.Roles = roles.ToList(); 
+
+            return userDto;
+        }
+
         public async Task AssignRolesToUserAsync(AppUserAssignRoleDto dto)
         {
             var user = await _userManager.FindByIdAsync(dto.UserId.ToString());
