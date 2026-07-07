@@ -68,6 +68,9 @@ namespace Yummy.Business.Managers
             if (reservation.AppUserId.ToString() != userId)
                 throw new LogicException("Forbidden", "Bu işlem için yetkiniz yok.");
 
+            if (reservation.ReservationStatus == ReservationStatus.Cancelled)
+                throw new LogicException("AlreadyCancelled", "Bu rezervasyon zaten daha önce iptal edilmiş.");
+
             var reservationDateTime = reservation.ReservationDate.Date.AddHours(int.Parse(reservation.ReservationTime.Split(':')[0]));
 
             if (reservationDateTime < DateTime.Now.AddHours(1))
@@ -77,6 +80,18 @@ namespace Yummy.Business.Managers
 
             _reservationRepository.Update(reservation);
             await _uow.SaveAsync();
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationCancelledTemplate.html");
+            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", reservation.Name) 
+                .Replace("{{Surname}}", reservation.Surname)
+                .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
+                .Replace("{{Time}}", reservation.ReservationTime)
+                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString());
+
+            await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
 
         public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
