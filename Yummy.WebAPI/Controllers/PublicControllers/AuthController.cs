@@ -30,11 +30,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         public async Task<IActionResult> Login([FromBody] AppUserLoginDto dto)
         {
             var token = await _appUserService.LoginAsync(dto);
-            return Ok(new
-            {
-                message = "Başarıyla giriş yapıldı. Hoş geldiniz!",
-                token = "Bearer " + token
-            });
+            return Ok(token);
         }
 
         [HttpPost("verify-email")]
@@ -68,6 +64,13 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
 
             await _appUserService.ChangePasswordAsync(userId, dto);
             return Ok(new { message = "Şifreniz başarıyla değiştirildi." });
+        }
+
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto dto)
+        {
+            var result = await _appUserService.RefreshTokenAsync(dto);
+            return Ok(result);
         }
     }
 }
