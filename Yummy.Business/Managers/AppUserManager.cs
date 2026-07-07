@@ -384,6 +384,21 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(dto.NewEmail, subject, mailBody);
         }
 
+        public async Task EmailChangeConfirmAsync(string userId, ChangeEmailConfirmDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            var result = await _userManager.ChangeEmailAsync(user, dto.NewEmail, dto.Token);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("ChangeEmailError", $"Doğrulama kodu hatalı veya süresi dolmuş. Detay: {errors}");
+            }
+        }
+
         #region Refresh Token İşlemleri
         private string GenerateRefreshToken()
         {

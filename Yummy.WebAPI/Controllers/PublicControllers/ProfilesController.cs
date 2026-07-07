@@ -51,5 +51,29 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             await _appUserService.UpdateAppUserAsync(userId, dto);
             return Ok(new { message = "Profiliniz başarıyla güncellendi." });
         }
+
+        [HttpPost("request-email-change")]
+        public async Task<IActionResult> RequestEmailChange(ChangeEmailRequestDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _appUserService.EmailChangeRequestAsync(userId, dto);
+
+            return Ok(new { message = "Yeni e-posta adresinize bir doğrulama kodu gönderildi. Lütfen gelen kutunuzu kontrol edin." });
+        }
+
+        [HttpPost("confirm-email-change")]
+        public async Task<IActionResult> ConfirmEmailChange(ChangeEmailConfirmDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _appUserService.EmailChangeConfirmAsync(userId, dto);
+
+            return Ok(new { message = "E-posta adresiniz başarıyla güncellendi." });
+        }
     }
 }
