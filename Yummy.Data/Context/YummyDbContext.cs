@@ -70,6 +70,10 @@ namespace Yummy.Data.Context
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.Entity<Reservation>()
+                .Property(r => r.ReservationStatus)
+                .HasConversion<string>();
+
             builder.Entity<Testimonial>()
                 .HasOne(t => t.AppUser)
                 .WithMany(u => u.Testimonials)
