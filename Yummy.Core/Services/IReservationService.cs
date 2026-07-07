@@ -11,5 +11,6 @@ namespace Yummy.Core.Services
     {
         Task AddReservationAsync(string userId, ReservationCreateDto dto);
         Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId);
+        Task CancelReservationAsync(string userId, Guid reservationId);
     }
 }

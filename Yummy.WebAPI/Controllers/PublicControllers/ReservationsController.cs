@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Client;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
@@ -36,7 +37,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpGet("see-my-reservations")]
-        public async Task<IActionResult> SeeMyPastOrders()
+        public async Task<IActionResult> SeeMyPastReservations()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
@@ -44,6 +45,17 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
 
             var reservations = await _reservationService.SeeMyPastReservationsAsync(userId);
             return Ok(reservations);
+        }
+
+        [HttpPut("cancel/{id}")]
+        public async Task<IActionResult> CancelReservation(Guid id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _reservationService.CancelReservationAsync(userId, id);
+            return Ok(new { message = "Rezervasyonunuz başarıyla iptal edilmiştir." });
         }
     }
 }

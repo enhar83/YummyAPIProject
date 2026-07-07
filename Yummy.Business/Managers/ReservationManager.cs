@@ -10,6 +10,7 @@ using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
 using Yummy.Entity;
+using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Managers
 {
@@ -56,6 +57,26 @@ namespace Yummy.Business.Managers
             var subject = "Yummy Restoran - Rezervasyon Talebiniz Alındı";
 
             await _emailService.SendEmailAsync(dto.Email, subject, mailBody);
+        }
+
+        public async Task CancelReservationAsync(string userId, Guid reservationId)
+        {
+            var reservation = await _reservationRepository.GetByIdAsync(reservationId);
+            if (reservation == null)
+                throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
+
+            if (reservation.AppUserId.ToString() != userId)
+                throw new LogicException("Forbidden", "Bu işlem için yetkiniz yok.");
+
+            var reservationDateTime = reservation.ReservationDate.Date.AddHours(int.Parse(reservation.ReservationTime.Split(':')[0]));
+
+            if (reservationDateTime < DateTime.Now.AddHours(1))
+                throw new LogicException("TooLate", "Rezervasyon saatinize 2 saatten az kaldığı için iptal işlemi yapılamaz.");
+
+            reservation.ReservationStatus = ReservationStatus.Cancelled;
+
+            _reservationRepository.Update(reservation);
+            await _uow.SaveAsync();
         }
 
         public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
