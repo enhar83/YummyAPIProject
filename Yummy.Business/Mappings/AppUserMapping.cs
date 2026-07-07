@@ -20,6 +20,7 @@ namespace Yummy.Business.Mappings
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.Name} {src.Surname}"))
                 .ForMember(dest => dest.Roles, opt => opt.Ignore());
 
+            CreateMap<AppUser, GetAppUserProfileDto>();
             CreateMap<UpdateAppUserDto, AppUser>();
         }
     }

@@ -307,6 +307,16 @@ namespace Yummy.Business.Managers
             };
         }
 
+        public async Task<GetAppUserProfileDto> GetUserProfileAsync(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            var userProfileDto = _mapper.Map<GetAppUserProfileDto>(user);
+            return userProfileDto;
+        }
+
         public async Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto)
         {
             var user = await _userManager.FindByIdAsync(userId);

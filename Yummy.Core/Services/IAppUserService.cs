@@ -19,6 +19,7 @@ namespace Yummy.Core.Services
         Task AssignRolesToUserAsync(AppUserAssignRoleDto dto);
         Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto);
         Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto);
+        Task<GetAppUserProfileDto> GetUserProfileAsync(string userId);
         Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto);
     }
 }
