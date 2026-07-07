@@ -355,6 +355,35 @@ namespace Yummy.Business.Managers
                 DeleteFile(oldImageUrl);
         }
 
+        public async Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            if (user.Email == dto.NewEmail)
+                throw new LogicException("SameEmail", "Yeni mail adresiniz eskisi ile aynı olamaz.");
+
+            var isEmailTaken = await _userManager.FindByEmailAsync(dto.NewEmail);
+            if (isEmailTaken != null)
+                throw new LogicException("EmailTaken", "Bu mail adresi başka bir kullanıcıya ait.");
+
+            var token = await _userManager.GenerateChangeEmailTokenAsync(user, dto.NewEmail);
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailChangeTemplate.html");
+            if (!File.Exists(templatePath))
+                throw new LogicException("TemplateError", "E-posta şablonu bulunamadı.");
+
+            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", user.Name)
+                .Replace("{{Token}}", token)
+                .Replace("{{NewEmail}}", dto.NewEmail);
+
+            var subject = "Yummy Restoran - E-posta Değiştirme Talebi";
+            await _emailService.SendEmailAsync(dto.NewEmail, subject, mailBody);
+        }
+
         #region Refresh Token İşlemleri
         private string GenerateRefreshToken()
         {

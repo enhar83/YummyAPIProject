@@ -21,5 +21,6 @@ namespace Yummy.Core.Services
         Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto);
         Task<GetAppUserProfileDto> GetUserProfileAsync(string userId);
         Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto);
+        Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto);
     }
 }
