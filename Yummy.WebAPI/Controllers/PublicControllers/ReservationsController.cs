@@ -67,5 +67,17 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             var reservation = await _reservationService.GetUserReservationByIdAsync(userId, id);
             return Ok(reservation);
         }
+
+        [HttpPut("update-reservation")]
+        public async Task<IActionResult> UpdateReservation([FromBody] ReservationUpdateDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _reservationService.UpdateReservationAsync(userId, dto);
+            return Ok("Rezervasyonunuz başarıyla güncellenmiştir. Onay durumu beklemededir.");
+        }
+        
     }
 }

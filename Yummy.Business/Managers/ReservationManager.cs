@@ -88,7 +88,7 @@ namespace Yummy.Business.Managers
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
 
             var mailBody = emailTemplate
-                .Replace("{{Name}}", reservation.Name) 
+                .Replace("{{Name}}", reservation.Name)
                 .Replace("{{Surname}}", reservation.Surname)
                 .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{Time}}", reservation.ReservationTime)
@@ -129,6 +129,36 @@ namespace Yummy.Business.Managers
                  .ToListAsync();
         }
 
+        public async Task UpdateReservationAsync(string userId, ReservationUpdateDto dto)
+        {
+            if (!Guid.TryParse(userId, out Guid parsedUserId))
+                throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
+
+            var reservation = await _reservationRepository.GetSingleAsync(x => x.ReservationId == dto.ReservationId && x.AppUserId == parsedUserId);
+            if (reservation == null)
+                throw new LogicException("InvalidReservationId", "Güncellenmek istenen rezarvasyon kimliği bulunamadı.");
+
+            if (reservation.ReservationStatus == ReservationStatus.Completed || reservation.ReservationStatus == ReservationStatus.Cancelled)
+                throw new LogicException("NotAllowed", "Tamamlanmış veya iptal edilmiş rezervasyonlar üzerinde güncelleme yapılamaz.");
+
+            bool isChanged = false;
+
+            string incomingMessage = dto.Message ?? string.Empty;
+
+            if (reservation.ReservationDate.Date != dto.ReservationDate.Date ||
+                reservation.ReservationTime != dto.ReservationTime ||
+                reservation.NumberOfGuests != dto.NumberOfGuests ||
+                reservation.Message != incomingMessage)
+                isChanged = true;
+
+            if (isChanged && reservation.ReservationStatus == ReservationStatus.Approved)
+                reservation.ReservationStatus = ReservationStatus.Pending;
+            _mapper.Map(dto, reservation);
+
+            _reservationRepository.Update(reservation);
+            await _uow.SaveAsync();
+        }
+
         public async Task UpdateReservationStatusAsync(UpdateReservationDto dto)
         {
             var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId);
@@ -152,17 +182,17 @@ namespace Yummy.Business.Managers
                 case ReservationStatus.Approved:
                     statusTitle = "Rezervasyon Onaylandı";
                     statusMessage = "onaylanmıştır. Sizi ağırlamaktan mutluluk duyacağız";
-                    statusColor = "#28a745"; 
+                    statusColor = "#28a745";
                     break;
                 case ReservationStatus.Cancelled:
                     statusTitle = "Rezervasyon İptal Edildi";
                     statusMessage = "operasyonel nedenler nedeniyle iptal edilmiştir";
-                    statusColor = "#dc3545"; 
+                    statusColor = "#dc3545";
                     break;
                 case ReservationStatus.Pending:
                     statusTitle = "Rezervasyon Beklemede";
                     statusMessage = "tekrar değerlendirmeye alınmış ve bekleme durumuna çekilmiştir";
-                    statusColor = "#ffc107"; 
+                    statusColor = "#ffc107";
                     break;
                 case ReservationStatus.Completed:
                 default:
@@ -178,7 +208,7 @@ namespace Yummy.Business.Managers
                 .Replace("{{StatusMessage}}", statusMessage)
                 .Replace("{{StatusColor}}", statusColor)
                 .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
-                .Replace("{{Time}}", reservation.ReservationTime) 
+                .Replace("{{Time}}", reservation.ReservationTime)
                 .Replace("{{Guests}}", reservation.NumberOfGuests.ToString());
 
             var subject = $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})";
