@@ -141,6 +141,16 @@ namespace Yummy.Business.Managers
             if (reservation.ReservationStatus == ReservationStatus.Completed || reservation.ReservationStatus == ReservationStatus.Cancelled)
                 throw new LogicException("NotAllowed", "Tamamlanmış veya iptal edilmiş rezervasyonlar üzerinde güncelleme yapılamaz.");
 
+            var exactReservationDateTime = reservation.ReservationDate.Date;
+            if (TimeSpan.TryParse(reservation.ReservationTime, out TimeSpan parsedTime))
+                exactReservationDateTime = exactReservationDateTime.Add(parsedTime);
+
+            if (exactReservationDateTime < DateTime.Now)
+                throw new LogicException("PastReservation", "Geçmiş rezervasyonlarda herhangi bir değişiklik yapılamaz.");
+
+            if (exactReservationDateTime <= DateTime.Now.AddHours(2))
+                throw new LogicException("TooLate", "Rezervasyonunuza 2 saatten az bir süre kaldığı için değişiklik yapılamaz.");
+
             bool isChanged = false;
 
             string incomingMessage = dto.Message ?? string.Empty;
@@ -157,6 +167,24 @@ namespace Yummy.Business.Managers
 
             _reservationRepository.Update(reservation);
             await _uow.SaveAsync();
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationUpdatedTemplate.html");
+
+            if (!File.Exists(templatePath))
+                throw new LogicException("TemplateError", "Güncelleme e-posta şablonu bulunamadı.");
+
+            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", reservation.Name)
+                .Replace("{{Surname}}", reservation.Surname)
+                .Replace("{{NewDate}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
+                .Replace("{{NewTime}}", reservation.ReservationTime)
+                .Replace("{{NewGuests}}", reservation.NumberOfGuests.ToString());
+
+            var subject = "Yummy Restoran - Rezervasyonunuz Güncellendi ve Onay Bekliyor";
+
+            await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
         }
 
         public async Task UpdateReservationStatusAsync(UpdateReservationDto dto)
