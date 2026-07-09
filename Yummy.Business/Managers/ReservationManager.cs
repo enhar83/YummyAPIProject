@@ -97,6 +97,72 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
 
+        public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto)
+        { 
+            int maxTables = 10; 
+            var reservationDuration = TimeSpan.FromHours(2); 
+
+            var allTimeSlots = new List<string>
+            {
+                "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+                "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+                "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+                "18:00", "18:30", "19:00", "19:30", "20:00", "20:30",
+                "21:00"
+            };
+
+            var targetDate = dto.ReservationDate.Date;
+            var now = DateTime.Now;
+
+            var activeReservations = await _reservationRepository.GetAsQueryable()
+                .Where(r => r.ReservationDate.Date == targetDate &&
+                           (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending))
+                .ToListAsync();
+
+            var existingIntervals = activeReservations
+                .Select(r =>
+                {
+                    TimeSpan.TryParse(r.ReservationTime, out TimeSpan start);
+                    return new { Start = start, End = start.Add(reservationDuration) };
+                }).ToList();
+
+            var response = new CheckAvailabilityResponseDto
+            {
+                ReservationDate = targetDate,
+                AvailableTimeSlots = new List<string>()
+            };
+
+            foreach (var slot in allTimeSlots)
+            {
+                if (!TimeSpan.TryParse(slot, out TimeSpan slotStart)) continue;
+
+                if (targetDate == now.Date && now.TimeOfDay.Add(TimeSpan.FromHours(1)) > slotStart)
+                    continue;
+
+                TimeSpan slotEnd = slotStart.Add(reservationDuration);
+                bool isSlotAvailable = true;
+
+                for (var checkTime = slotStart; checkTime < slotEnd; checkTime += TimeSpan.FromMinutes(30))
+                {
+                    int occupiedTablesAtCheckTime = existingIntervals
+                        .Count(r => r.Start <= checkTime && r.End > checkTime);
+
+                    if (occupiedTablesAtCheckTime >= maxTables)
+                    {
+                        isSlotAvailable = false;
+                        break;
+                    }
+                }
+
+                if (isSlotAvailable)
+                    response.AvailableTimeSlots.Add(slot);
+            }
+
+            response.IsFullyBooked = !response.AvailableTimeSlots.Any();
+
+            return response;
+        }
+
         public async Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync()
         {
             return await _reservationRepository.GetAsQueryable()

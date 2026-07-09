@@ -19,7 +19,13 @@ namespace Yummy.Business.Validators.ReservationValidators
 
             RuleFor(x => x.ReservationTime)
                 .NotEmpty().WithMessage("Rezervasyon saati zorunludur.")
-                .Matches(@"^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$").WithMessage("Saat formatı HH:MM olmalıdır. (Örn: 19:30)");
+                .Matches(@"^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$").WithMessage("Saat formatı HH:MM olmalıdır. (Örn: 19:30)")
+                .Must(saat =>
+                {
+                    if (TimeSpan.TryParse(saat, out TimeSpan parsedTime))
+                        return parsedTime >= new TimeSpan(9, 0, 0) && parsedTime <= new TimeSpan(21, 0, 0);
+                    return false;
+                }).WithMessage("Restoranımız 09:00 ile 23:00 saatleri arasında hizmet vermektedir. En son rezervasyon saati 21:00'dır.");
 
             RuleFor(x => x.NumberOfGuests)
                 .GreaterThan(0).WithMessage("Kişi sayısı en az 1 olmalıdır.")

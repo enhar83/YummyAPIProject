@@ -78,6 +78,13 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             await _reservationService.UpdateReservationAsync(userId, dto);
             return Ok("Rezervasyonunuz başarıyla güncellenmiştir. Onay durumu beklemededir.");
         }
-        
+
+        [HttpGet("check-availability")]
+        public async Task<IActionResult> CheckAvailability([FromQuery] CheckAvailabilityRequestDto dto)
+        {
+            var result = await _reservationService.CheckAvailabilityAsync(dto);
+            return Ok(result);
+        }
+
     }
 }
