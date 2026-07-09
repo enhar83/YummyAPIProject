@@ -57,5 +57,15 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             await _reservationService.CancelReservationAsync(userId, id);
             return Ok(new { message = "Rezervasyonunuz başarıyla iptal edilmiştir." });
         }
+
+        [HttpGet("get-reservation/{id}")]
+        public async Task<IActionResult> GetUserReservationById(Guid id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+            var reservation = await _reservationService.GetUserReservationByIdAsync(userId, id);
+            return Ok(reservation);
+        }
     }
 }

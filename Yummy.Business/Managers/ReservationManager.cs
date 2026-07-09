@@ -94,6 +94,20 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
 
+        public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId)
+        {
+            if (!Guid.TryParse(userId, out Guid parsedUserId))
+                throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
+
+            var reservation = await _reservationRepository.GetSingleAsync(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId);
+            if (reservation == null)
+                throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
+
+            var reservationDto = _mapper.Map<PastReservationByUserDto>(reservation);
+
+            return reservationDto;
+        }
+
         public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
