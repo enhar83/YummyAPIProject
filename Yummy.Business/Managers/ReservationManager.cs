@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Microsoft.EntityFrameworkCore;
+using Yummy.Core.DTOs.ProductDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -94,28 +97,36 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
 
+        public async Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync()
+        {
+            return await _reservationRepository.GetAsQueryable()
+                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
+        }
+
         public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            var reservation = await _reservationRepository.GetSingleAsync(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId);
-            if (reservation == null)
-                throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
+            var reservation = await _reservationRepository.GetAsQueryable()
+                .Where(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId)
+                .ProjectTo<PastReservationByUserDto>(_mapper.ConfigurationProvider)
+                .FirstOrDefaultAsync();
 
-            var reservationDto = _mapper.Map<PastReservationByUserDto>(reservation);
-
-            return reservationDto;
+            return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
         }
 
         public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
-            var reservations = await _reservationRepository.GetWhereAsync(x => x.AppUserId == parsedUserId);
 
-            var reservationDtos = _mapper.Map<IEnumerable<PastReservationByUserDto>>(reservations);
-            return reservationDtos.OrderByDescending(x => x.ReservationDate);
+            return await _reservationRepository.GetAsQueryable()
+                 .Where(x => x.AppUserId == parsedUserId)
+                 .OrderByDescending(x => x.ReservationDate)
+                 .ProjectTo<PastReservationByUserDto>(_mapper.ConfigurationProvider)
+                 .ToListAsync();
         }
     }
 }
