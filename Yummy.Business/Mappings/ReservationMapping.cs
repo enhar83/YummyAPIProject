@@ -27,6 +27,14 @@ namespace Yummy.Business.Mappings
                     src.ReservationStatus == ReservationStatus.Completed ? "Tamamlandı" :
                     src.ReservationStatus == ReservationStatus.Cancelled ? "İptal Edildi" : "Bilinmiyor"
                 ));
+
+            CreateMap<Reservation, ReservationListDto>()
+                .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src =>
+                    src.ReservationStatus == ReservationStatus.Pending ? "Onay Bekliyor" :
+                    src.ReservationStatus == ReservationStatus.Approved ? "Onaylandı" :
+                    src.ReservationStatus == ReservationStatus.Completed ? "Tamamlandı" :
+                    src.ReservationStatus == ReservationStatus.Cancelled ? "İptal Edildi" : "Bilinmiyor"
+                ));
         }
     }
 }
