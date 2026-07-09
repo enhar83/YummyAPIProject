@@ -9,11 +9,11 @@ namespace Yummy.Entity
     public class Testimonial
     {
         public Guid TestimonialId { get; set; }
-        public string Name { get; set; } = null!;
-        public string Surname { get; set; } = null!;
         public string Title { get; set; } = null!;
         public string Comment { get; set; } = null!;
-        public string ImageUrl { get; set; } = null!;
+        public byte Rating { get; set; } 
+        public bool IsApproved { get; set; } = false; 
+        public DateTime CreatedDate { get; set; } = DateTime.Now;
         public Guid AppUserId { get; set; } 
         public AppUser AppUser { get; set; } = null!;
     }
