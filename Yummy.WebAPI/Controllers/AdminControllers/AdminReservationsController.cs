@@ -26,7 +26,7 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         }
 
         [HttpPut("update-status")]
-        public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationStatusDto dto)
+        public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationDto dto)
         {
             await _reservationService.UpdateReservationStatusAsync(dto);
             return Ok("Rezarvasyon durumu başarıyla güncellendi.");

@@ -9,7 +9,7 @@ using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Validators.ReservationValidators
 {
-    public class UpdateReservationStatusValidator : AbstractValidator<UpdateReservationStatusDto>
+    public class UpdateReservationStatusValidator : AbstractValidator<UpdateReservationDto>
     {
         public UpdateReservationStatusValidator()
         {

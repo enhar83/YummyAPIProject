@@ -7,7 +7,7 @@ using Yummy.Entity.Enums;
 
 namespace Yummy.Core.DTOs.ReservationDTOs
 {
-    public class UpdateReservationStatusDto
+    public class UpdateReservationDto
     {
         public Guid ReservationId { get; set; }
         public ReservationStatus ReservationStatus { get; set; }

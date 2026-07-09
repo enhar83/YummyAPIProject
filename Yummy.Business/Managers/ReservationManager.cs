@@ -129,7 +129,7 @@ namespace Yummy.Business.Managers
                  .ToListAsync();
         }
 
-        public async Task UpdateReservationStatusAsync(UpdateReservationStatusDto dto)
+        public async Task UpdateReservationStatusAsync(UpdateReservationDto dto)
         {
             var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId);
             if (reservation == null)

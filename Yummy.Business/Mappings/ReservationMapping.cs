@@ -20,6 +20,10 @@ namespace Yummy.Business.Mappings
                 .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src => ReservationStatus.Pending))
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore());
 
+            CreateMap<ReservationUpdateDto, Reservation>()
+                .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message ?? string.Empty))
+                .ForMember(dest => dest.AppUserId, opt => opt.Ignore());
+
             CreateMap<Reservation, PastReservationByUserDto>()
                 .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src =>
                     src.ReservationStatus == ReservationStatus.Pending ? "Onay Bekliyor" :
