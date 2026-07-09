@@ -35,6 +35,8 @@ namespace Yummy.Business.Mappings
                     src.ReservationStatus == ReservationStatus.Completed ? "Tamamlandı" :
                     src.ReservationStatus == ReservationStatus.Cancelled ? "İptal Edildi" : "Bilinmiyor"
                 ));
+
+            CreateMap<UpdateReservationStatusDto, Reservation>();
         }
     }
 }
