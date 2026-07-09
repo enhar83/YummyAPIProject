@@ -104,6 +104,16 @@ namespace Yummy.Business.Managers
                 .ToListAsync();
         }
 
+        public async Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId)
+        {
+            var reservation = await _reservationRepository.GetAsQueryable()
+                .Where(x => x.ReservationId == reservationId)
+                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
+                .FirstOrDefaultAsync();
+
+            return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
+        }
+
         public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
