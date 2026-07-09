@@ -128,5 +128,16 @@ namespace Yummy.Business.Managers
                  .ProjectTo<PastReservationByUserDto>(_mapper.ConfigurationProvider)
                  .ToListAsync();
         }
+
+        public async Task UpdateReservationStatusAsync(UpdateReservationStatusDto dto)
+        {
+            var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId);
+            if (reservation == null)
+                throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
+
+            reservation.ReservationStatus = dto.ReservationStatus;
+            _reservationRepository.Update(reservation);
+            await _uow.SaveAsync();
+        }
     }
 }

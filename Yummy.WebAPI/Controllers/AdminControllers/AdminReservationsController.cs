@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Services;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
@@ -22,6 +23,13 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         {
             var reservations = await _reservationService.GetAllReservationsAsync();
             return Ok(reservations);
+        }
+
+        [HttpPut("update-status")]
+        public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationStatusDto dto)
+        {
+            await _reservationService.UpdateReservationStatusAsync(dto);
+            return Ok("Rezarvasyon durumu başarıyla güncellendi.");
         }
     }
 }
