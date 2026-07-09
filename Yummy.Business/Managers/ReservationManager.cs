@@ -114,6 +114,14 @@ namespace Yummy.Business.Managers
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
         }
 
+        public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync()
+        {
+            return await _reservationRepository.GetAsQueryable()
+                .Where(x=>x.ReservationDate == DateTime.Today)
+                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
+                .ToListAsync();
+        }
+
         public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))

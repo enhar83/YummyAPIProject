@@ -40,5 +40,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             var reservation = await _reservationService.GetReservationByIdAsync(id);
             return Ok(reservation);
         }
+
+        [HttpGet("todays-reservations")]
+        public async Task<IActionResult> GetTodaysReservations()
+        {
+            var reservations = await _reservationService.GetTodaysReservationListAsync();
+            return Ok(reservations);
+        }
     }
 }

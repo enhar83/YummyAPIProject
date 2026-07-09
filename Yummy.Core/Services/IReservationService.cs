@@ -17,5 +17,6 @@ namespace Yummy.Core.Services
         Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync();
         Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId);
         Task UpdateReservationStatusAsync(UpdateReservationDto dto);
+        Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync();
     }
 }
