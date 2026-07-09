@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Yummy.Business.BackgroundServices;
 using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
@@ -85,6 +86,8 @@ builder.Services.AddScoped<IAppUserService, AppUserManager>();
 builder.Services.AddScoped<IAppRoleService, AppRoleManager>();
 builder.Services.AddScoped<IJwtService, JwtManager>();
 builder.Services.AddScoped<IReservationService, ReservationManager>();
+
+builder.Services.AddHostedService<ReservationStatusWorker>();
 
 builder.Services.AddAutoMapper(cfg =>
 {
