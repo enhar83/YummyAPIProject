@@ -86,6 +86,7 @@ builder.Services.AddScoped<IAppUserService, AppUserManager>();
 builder.Services.AddScoped<IAppRoleService, AppRoleManager>();
 builder.Services.AddScoped<IJwtService, JwtManager>();
 builder.Services.AddScoped<IReservationService, ReservationManager>();
+builder.Services.AddScoped<ITestimonialService, TestimonialManager>();
 
 builder.Services.AddHostedService<ReservationStatusWorker>();
 
