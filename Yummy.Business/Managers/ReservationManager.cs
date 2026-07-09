@@ -138,6 +138,52 @@ namespace Yummy.Business.Managers
             reservation.ReservationStatus = dto.ReservationStatus;
             _reservationRepository.Update(reservation);
             await _uow.SaveAsync();
+
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationStatusTemplate.html");
+            if (!File.Exists(templatePath))
+                throw new LogicException("TemplateError", "Durum güncelleme e-posta şablonu bulunamadı.");
+
+            string statusTitle = "";
+            string statusMessage = "";
+            string statusColor = "";
+
+            switch (reservation.ReservationStatus)
+            {
+                case ReservationStatus.Approved:
+                    statusTitle = "Rezervasyon Onaylandı";
+                    statusMessage = "onaylanmıştır. Sizi ağırlamaktan mutluluk duyacağız";
+                    statusColor = "#28a745"; 
+                    break;
+                case ReservationStatus.Cancelled:
+                    statusTitle = "Rezervasyon İptal Edildi";
+                    statusMessage = "operasyonel nedenler nedeniyle iptal edilmiştir";
+                    statusColor = "#dc3545"; 
+                    break;
+                case ReservationStatus.Pending:
+                    statusTitle = "Rezervasyon Beklemede";
+                    statusMessage = "tekrar değerlendirmeye alınmış ve bekleme durumuna çekilmiştir";
+                    statusColor = "#ffc107"; 
+                    break;
+                case ReservationStatus.Completed:
+                default:
+                    return;
+            }
+
+            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", reservation.Name)
+                .Replace("{{Surname}}", reservation.Surname)
+                .Replace("{{StatusTitle}}", statusTitle)
+                .Replace("{{StatusMessage}}", statusMessage)
+                .Replace("{{StatusColor}}", statusColor)
+                .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
+                .Replace("{{Time}}", reservation.ReservationTime) 
+                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString());
+
+            var subject = $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})";
+
+            await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
         }
     }
 }
