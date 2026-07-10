@@ -29,5 +29,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             await _testimonialService.ToggleApproveAsync(id);
             return Ok("Yorumun durumu başarıyla değiştirilmiştir.");
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            await _testimonialService.DeleteTestimonialAsync(id);
+            return Ok("Yorum başarıyla silindi.");
+        }
     }
 }

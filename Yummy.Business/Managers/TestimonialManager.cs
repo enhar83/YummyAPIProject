@@ -50,6 +50,16 @@ namespace Yummy.Business.Managers
             await _uow.SaveAsync();
         }
 
+        public async Task DeleteTestimonialAsync(Guid testimonialId)
+        {
+            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId);
+            if (testimonial == null)
+                throw new LogicException("InvalidId", "Silinmek istenen yoruma ait Id bulunamadı.");
+
+            _testimonialRepository.Remove(testimonial);
+            await _uow.SaveAsync();
+        }
+
         public async Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync()
         {
             return await _testimonialRepository.GetAsQueryable()
