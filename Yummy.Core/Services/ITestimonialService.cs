@@ -10,5 +10,6 @@ namespace Yummy.Core.Services
     public interface ITestimonialService
     {
         Task AddTestimonialAsync(string userId, TestimonialCreateDto dto);
+        Task<IEnumerable<UsersPastTestimonialsList>> GetUsersPastTestimonialsAsync(string userId);
     }
 }

@@ -16,6 +16,8 @@ namespace Yummy.Business.Mappings
             CreateMap<TestimonialCreateDto, Testimonial>()
                 .ForMember(dest => dest.IsApproved, opt => opt.MapFrom(src => false)) 
                 .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => DateTime.Now));
+
+            CreateMap<Testimonial, UsersPastTestimonialsList>();
         }
     }
 }

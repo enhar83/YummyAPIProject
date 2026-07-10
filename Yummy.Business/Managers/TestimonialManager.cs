@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
+using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.DTOs.TestimonialDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.IRepositories;
@@ -46,6 +48,18 @@ namespace Yummy.Business.Managers
 
             await _testimonialRepository.AddAsync(testimonial);
             await _uow.SaveAsync();
+        }
+
+        public async Task<IEnumerable<UsersPastTestimonialsList>> GetUsersPastTestimonialsAsync(string userId)
+        {
+            if (!Guid.TryParse(userId, out Guid parsedUserId))
+                throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
+
+            return await _testimonialRepository.GetAsQueryable()
+                 .Where(x => x.AppUserId == parsedUserId)
+                 .OrderByDescending(x => x.CreatedDate)
+                 .ProjectTo<UsersPastTestimonialsList>(_mapper.ConfigurationProvider)
+                 .ToListAsync();
         }
     }
 }

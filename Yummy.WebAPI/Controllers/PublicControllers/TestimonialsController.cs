@@ -30,5 +30,16 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             await _testimonialService.AddTestimonialAsync(userId, dto);
             return Ok("Yorumunuz başarıyla eklenmiştir. Admin onayı yapıldığında bilgilendirme yapılacaktır.");
         }
+
+        [HttpGet("user-past-testimonials")]
+        public async Task<IActionResult> GetUsersPastTestimonials()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Müşteri bilgileri alınamadı.");
+
+            var testimonials = await _testimonialService.GetUsersPastTestimonialsAsync(userId);
+            return Ok(testimonials);
+        }
     }
 }
