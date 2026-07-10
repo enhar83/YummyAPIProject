@@ -22,5 +22,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             var testimonials = await _testimonialService.GetAllTestimonialsAsync();
             return Ok(testimonials);
         }
+
+        [HttpPut("toggle-approve/{id}")]
+        public async Task<IActionResult> ToggleApprove(Guid id)
+        {
+            await _testimonialService.ToggleApproveAsync(id);
+            return Ok("Yorumun durumu başarıyla değiştirilmiştir.");
+        }
     }
 }

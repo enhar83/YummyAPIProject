@@ -12,5 +12,6 @@ namespace Yummy.Core.Services
         Task AddTestimonialAsync(string userId, TestimonialCreateDto dto);
         Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId);
         Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync();
+        Task ToggleApproveAsync(Guid testimonialId);
     }
 }

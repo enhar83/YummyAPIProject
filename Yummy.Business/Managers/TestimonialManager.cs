@@ -69,5 +69,17 @@ namespace Yummy.Business.Managers
                  .ProjectTo<UsersPastTestimonialsListDto>(_mapper.ConfigurationProvider)
                  .ToListAsync();
         }
+
+        public async Task ToggleApproveAsync(Guid testimonialId)
+        {
+            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId);
+            if (testimonial == null)
+                throw new LogicException("NotFound", "Aranılan yorum bulunamadı.");
+
+            testimonial.IsApproved = !testimonial.IsApproved;
+
+            _testimonialRepository.Update(testimonial);
+            await _uow.SaveAsync();
+        }
     }
 }
