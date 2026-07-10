@@ -50,7 +50,15 @@ namespace Yummy.Business.Managers
             await _uow.SaveAsync();
         }
 
-        public async Task<IEnumerable<UsersPastTestimonialsList>> GetUsersPastTestimonialsAsync(string userId)
+        public async Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync()
+        {
+            return await _testimonialRepository.GetAsQueryable()
+                 .OrderByDescending(x => x.CreatedDate)
+                 .ProjectTo<AllTestimonialListDto>(_mapper.ConfigurationProvider)
+                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
@@ -58,7 +66,7 @@ namespace Yummy.Business.Managers
             return await _testimonialRepository.GetAsQueryable()
                  .Where(x => x.AppUserId == parsedUserId)
                  .OrderByDescending(x => x.CreatedDate)
-                 .ProjectTo<UsersPastTestimonialsList>(_mapper.ConfigurationProvider)
+                 .ProjectTo<UsersPastTestimonialsListDto>(_mapper.ConfigurationProvider)
                  .ToListAsync();
         }
     }
