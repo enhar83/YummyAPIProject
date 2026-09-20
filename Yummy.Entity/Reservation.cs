@@ -22,5 +22,8 @@ namespace Yummy.Entity
         public ReservationStatus ReservationStatus { get; set; }
         public Guid AppUserId { get; set; }
         public AppUser AppUser { get; set; } = null!;
+        public string ReservationEndTime { get; set; } = null!;
+        public Guid DiningTableId { get; set; }
+        public DiningTable DiningTable { get; set; } = null!;
     }
 }

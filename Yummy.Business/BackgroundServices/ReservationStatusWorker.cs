@@ -33,7 +33,7 @@ namespace Yummy.Business.BackgroundServices
 
                 try
                 {
-                    using (var scope = _serviceProvider.CreateScope())
+                    await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
                         var reservationRepository = scope.ServiceProvider.GetRequiredService<IGenericRepository<Reservation>>();
                         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -44,11 +44,9 @@ namespace Yummy.Business.BackgroundServices
 
                         foreach (var reservation in activeReservations)
                         {
-                            if (TimeSpan.TryParse(reservation.ReservationTime, out TimeSpan parsedTime))
+                            if (TimeSpan.TryParse(reservation.ReservationEndTime, out TimeSpan parsedEndTime))
                             {
-                                var exactReservationDateTime = reservation.ReservationDate.Date.Add(parsedTime);
-
-                                var thresholdTime = exactReservationDateTime.AddHours(2);
+                                var thresholdTime = reservation.ReservationDate.Date.Add(parsedEndTime);
 
                                 if (DateTime.Now >= thresholdTime)
                                 {
