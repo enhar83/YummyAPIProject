@@ -159,7 +159,12 @@ namespace Yummy.Business.Managers
             {
                 ReservationDate = targetDate,
                 IsFullyBooked = !availableTables.Any(),
-                AvailableTimeSlots = new List<string>() // Geriye dönük uyumluluk için boş.
+                AvailableTables = availableTables.Select(t => new AvailableTableDto
+                {
+                    DiningTableId = t.DiningTableId,
+                    TableNo = t.TableNo,
+                    Capacity = t.Capacity
+                }).ToList()
             };
 
             return response;
