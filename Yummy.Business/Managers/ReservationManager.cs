@@ -40,7 +40,7 @@ namespace Yummy.Business.Managers
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz veya doğrulanamadı.");
 
-            reservation.AppUserId = parsedUserId;
+            reservation.AppUserId = parsedUserId; // claimden çekilen userId, reservation entitysi içerisinde bulunan AppUserId propuna atanır. 
 
             await _reservationRepository.AddAsync(reservation, cancellationToken);
             await _uow.SaveAsync(cancellationToken);
@@ -100,8 +100,8 @@ namespace Yummy.Business.Managers
 
         public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default)
         { 
-            int maxTables = 10; 
-            var reservationDuration = TimeSpan.FromHours(2); 
+            int maxTables = 10; // restoranda bulunan masa sayısı
+            var reservationDuration = TimeSpan.FromHours(2); // bir rezervasyonun süresi
 
             var allTimeSlots = new List<string>
             {
@@ -115,6 +115,7 @@ namespace Yummy.Business.Managers
             var targetDate = dto.ReservationDate.Date;
             var now = DateTime.Now;
 
+            // rezarvasyonun tarihinde olan rezarvasyonları, onaylanmış ve bekliyor olan rezarvasyonları çeker.
             var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
                            (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
 

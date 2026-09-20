@@ -71,17 +71,16 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<AppUserListDto>> GetAllUsersInRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
         {
-            var role = await _roleManager.FindByIdAsync(roleId.ToString());
+            var role = await _roleManager.FindByIdAsync(roleId.ToString()); //id'ye göre istenilen rol bulunur.
             if (role == null)
                 throw new LogicException("RoleNotFound", "Böyle bir rol bulunamadı.");
 
-            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!);
-            var userDtos = _mapper.Map<List<AppUserListDto>>(usersInRole);
-
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!); //bu role sahip olan kullanıcılar alınır.
+            var userDtos = _mapper.Map<List<AppUserListDto>>(usersInRole); // bu kullanıcılar AppUserListDto dto'suna maplenir.
             for (int i = 0; i < usersInRole.Count; i++)
             {
-                var roles = await _userManager.GetRolesAsync(usersInRole[i]);
-                userDtos[i].Roles = roles;
+                var roles = await _userManager.GetRolesAsync(usersInRole[i]); // bu kullanıcıların rolleri alınır.
+                userDtos[i].Roles = roles; // dto'ya roller atanır.
             }
 
             return userDtos;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.JsonWebTokens; // YENİ NESİL KÜTÜPHANE
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Yummy.Core.Services;
 using Yummy.Core.Settings;
@@ -22,9 +22,11 @@ namespace Yummy.Business.Managers
 
         public string CreateToken(AppUser user, IEnumerable<string> roles)
         {
+            // token içerisinde herhangi bir değişiklik yapılırsa farkedilebilmesi için şifrelenme vs. işlemleri yapılır.
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecurityKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+            // claimler token içerisine koyulan kullanıcıya ait olan bilgilerdir.
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -54,7 +56,7 @@ namespace Yummy.Business.Managers
                 SigningCredentials = credentials
             };
 
-            var handler = new JsonWebTokenHandler();
+            var handler = new JsonWebTokenHandler(); // .NET standartlarına uygun olan JsonWebTokenHandler kullanılarak token string formatında oluşturulup döndürülür.
             return handler.CreateToken(tokenDescriptor);
         }
     }

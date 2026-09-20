@@ -54,8 +54,8 @@ namespace Yummy.Business.Managers
 
             var user = _mapper.Map<AppUser>(dto);
 
-            user.ActivationCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper();
-            user.EmailConfirmed = false;
+            user.ActivationCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper(); // kullanıcıya 6 haneli bir activation code oluşturulur.
+            user.EmailConfirmed = false; // email onayı yapılmadığı için EmailConfirmed propu default olarak false atanır.
 
             var result = await _userManager.CreateAsync(user, dto.Password);
 
@@ -65,12 +65,13 @@ namespace Yummy.Business.Managers
                 throw new LogicException("RegisterError", errors);
             }
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailActivationTemplate.html");
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailActivationTemplate.html"); // email şablonu bulunur.
             if (!File.Exists(templatePath))
             {
                 throw new LogicException("TemplateError", "E-posta şablonu bulunamadı.");
             }
-            var emailTemplate = await File.ReadAllTextAsync(templatePath);
+            var emailTemplate = await File.ReadAllTextAsync(templatePath); // email şablonu okunur.
+            
 
             var mailBody = emailTemplate
                 .Replace("{{Name}}", user.Name)
@@ -78,7 +79,7 @@ namespace Yummy.Business.Managers
                 .Replace("{{ActivationCode}}", user.ActivationCode);
 
             var subject = "Yummy Restoran - Hesabınızı Doğrulayın";
-            await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
+            await _emailService.SendEmailAsync(user.Email!, subject, mailBody); // kullanıcıya hesap doğrulama maili iletilir.
         }
 
         public async Task VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default)
@@ -93,9 +94,9 @@ namespace Yummy.Business.Managers
             if (user.ActivationCode != dto.ActivationCode.Trim().ToUpper())
                 throw new LogicException("InvalidCode", "Girdiğiniz aktivasyon kodu hatalı veya süresi dolmuş. Lütfen kontrol edin.");
 
-            user.EmailConfirmed = true;
-            user.ActivationCode = null;
-            var result = await _userManager.UpdateAsync(user);
+            user.EmailConfirmed = true; // EmailConfirmed propu true'ya çekilir.
+            user.ActivationCode = null; // ActivationCode propu null'a çekilir.
+            var result = await _userManager.UpdateAsync(user); // kullanıcı güncellenir.
 
             if (!result.Succeeded)
             {
@@ -110,7 +111,7 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
 
-            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user); // şifresini unutan bir kullanıcının yenilemesi için tek kullanımlık güvenli bir token üretir.
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailResetPasswordTemplate.html");
             if (!File.Exists(templatePath))
@@ -138,7 +139,7 @@ namespace Yummy.Business.Managers
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
-            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
+            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword); //  ForgotPasswordAsync içerisinde üretilen token burada kontrol edilir.
             if (!result.Succeeded)
             {
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
@@ -159,15 +160,15 @@ namespace Yummy.Business.Managers
             if (!result)
                 throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
 
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _userManager.GetRolesAsync(user); // jwt'ye gömülmek için kullanıcı roller alınır.
 
-            var accessToken = _jwtService.CreateToken(user, roles);
-            var refreshToken = GenerateRefreshToken();
+            var accessToken = _jwtService.CreateToken(user, roles); // jwtManager içerisinde token oluşturulur.
+            var refreshToken = GenerateRefreshToken(); // jwt süresi dolduğunda yenilemeyi sağlayacak refresh token üretilir. 
 
-            user.RefreshToken = refreshToken;
+            user.RefreshToken = refreshToken; // token kontrolü yapılabilmesi için dbye yazılır. 
             user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
 
-            var updateResult = await _userManager.UpdateAsync(user);
+            var updateResult = await _userManager.UpdateAsync(user); // RefreshToken propu dbye kaydedildiği için bir update işlemi gerçekleşir. 
             if (!updateResult.Succeeded)
                 throw new LogicException("LoginError", "Giriş yapılırken token güncellenemedi.");
 
@@ -203,9 +204,9 @@ namespace Yummy.Business.Managers
                 .ProjectTo<AppUserListDto>(_mapper.ConfigurationProvider)
                 .ToListAsync();
 
-            var allRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync();
+            var allRoles = await _roleManager.Roles.Select(r => r.Name!).ToListAsync(); // Select ile sadece rol isimleri çekilir RAM yorulmaz. 
 
-            var userRolesMap = userDtos.ToDictionary(u => u.Id, u => new List<string>());
+            var userRolesMap = userDtos.ToDictionary(u => u.Id, u => new List<string>()); // RAM yorulmasın diye dict kullanılarak tüm kullanıcıların rollerini listeler.
 
             foreach (var roleName in allRoles)
             {
@@ -415,7 +416,8 @@ namespace Yummy.Business.Managers
         }
 
         #region Refresh Token İşlemleri
-        private string GenerateRefreshToken()
+        // kısa ömürlü olan Access Token'ın süresi bittiğinde, kullanıcıdan tekrar şifre istemeden yeni bir Access Token alabilmek için kullanılan uzun ömürlü jetonu üretir.
+        private string GenerateRefreshToken() 
         {
             var randomNumber = new byte[64];
             using var rng = RandomNumberGenerator.Create();
