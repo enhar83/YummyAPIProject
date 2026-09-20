@@ -46,7 +46,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Yummy API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Lütfen 'Bearer' yazýp boþluk býraktýktan sonra Token'ýnýzý giriniz.\r\n\r\nÖrnek: \"Bearer eyJhbGci...\"",
+        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Ltfen 'Bearer' yazp boluk braktktan sonra Token'nz giriniz.\r\n\r\nrnek: \"Bearer eyJhbGci...\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -74,7 +74,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("TokenSettings"));
 
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanýmýdýr. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluþtur demektir. 
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanmdr. yani hangi tip istenirse onun iin otomatik olarak bir GenericRepository<T> olutur demektir. 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
@@ -87,6 +87,7 @@ builder.Services.AddScoped<IAppRoleService, AppRoleManager>();
 builder.Services.AddScoped<IJwtService, JwtManager>();
 builder.Services.AddScoped<IReservationService, ReservationManager>();
 builder.Services.AddScoped<ITestimonialService, TestimonialManager>();
+builder.Services.AddScoped<IDiningTableService, DiningTableManager>();
 
 builder.Services.AddHostedService<ReservationStatusWorker>();
 
@@ -125,7 +126,7 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
 
-            var result = JsonSerializer.Serialize(new { message = "Lütfen iþlem yapabilmek için sisteme giriþ yapýnýz." });
+            var result = JsonSerializer.Serialize(new { message = "Ltfen ilem yapabilmek iin sisteme giri yapnz." });
             return context.Response.WriteAsync(result);
         },
 
@@ -134,7 +135,7 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
 
-            var result = JsonSerializer.Serialize(new { message = "Bu alana eriþim saðlamak için gerekli yetkiye sahip deðilsiniz." });
+            var result = JsonSerializer.Serialize(new { message = "Bu alana eriim salamak iin gerekli yetkiye sahip deilsiniz." });
             return context.Response.WriteAsync(result);
         }
     };
@@ -152,7 +153,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseStaticFiles(); //IWebHostEnvironment'in çalýþmasý için. 
+app.UseStaticFiles(); //IWebHostEnvironment'in almas iin. 
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
