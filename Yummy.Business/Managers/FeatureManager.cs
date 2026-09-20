@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,10 +33,10 @@ namespace Yummy.Business.Managers
             _environment = environment;
         }
 
-        public async Task AddAsync(FeatureCreateDto dto)
+        public async Task AddAsync(FeatureCreateDto dto, CancellationToken cancellationToken = default)
         {
             var feature = _mapper.Map<Feature>(dto);
-            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title);
+            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title, cancellationToken);
             if (isFeatureExist)
                 throw new LogicException("Title", "Bu başlık zaten sistem içerisinde kullanılıyor.");
 
@@ -44,44 +45,43 @@ namespace Yummy.Business.Managers
             if (dto.Image != null)
                 feature.ImageUrl = await SaveFileAsync(dto.Image);
 
-            await _featureRepository.AddAsync(feature);
-            await _uow.SaveAsync();
+            await _featureRepository.AddAsync(feature, cancellationToken);
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var feature = await _featureRepository.GetByIdAsync(id);
+            var feature = await _featureRepository.GetByIdAsync(id, cancellationToken);
             if (feature == null)
                 throw new LogicException("FeatureId", "Silinmek istenen özellik Id'si bulunamadı.");
 
             DeleteFile(feature.ImageUrl);
             _featureRepository.Remove(feature);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<FeatureResponseDto>> GetAllAsync()
+        public async Task<IEnumerable<FeatureResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            return await _featureRepository.GetAsQueryable()
-                .ProjectTo<FeatureResponseDto>(_mapper.ConfigurationProvider)
-                .ToListAsync();
+            var entities = await _featureRepository.GetAllAsync(cancellationToken);
+            return _mapper.Map<IEnumerable<FeatureResponseDto>>(entities);
         }
 
-        public async Task<FeatureResponseDto?> GetByIdAsync(Guid id)
+        public async Task<FeatureResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var feature = await _featureRepository.GetByIdAsync(id);
+            var feature = await _featureRepository.GetByIdAsync(id, cancellationToken);
             if (feature == null)
                 throw new LogicException("FeatureId", "İstenilen Id'ye sahip özellik bulunamadı.");
 
             return _mapper.Map<FeatureResponseDto>(feature);
         }
 
-        public async Task UpdateAsync(FeatureUpdateDto dto)
+        public async Task UpdateAsync(FeatureUpdateDto dto, CancellationToken cancellationToken = default)
         {
-            var feature = await _featureRepository.GetByIdAsync(dto.FeatureId);
+            var feature = await _featureRepository.GetByIdAsync(dto.FeatureId, cancellationToken);
             if (feature == null)
                 throw new LogicException("FeatureId", "Güncellenmek istenen özelliğe ait Id bulunamadı.");
 
-            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title && f.FeatureId != dto.FeatureId);
+            bool isFeatureExist = await _featureRepository.AnyAsync(f => f.Title == dto.Title && f.FeatureId != dto.FeatureId, cancellationToken);
             if (isFeatureExist)
                 throw new LogicException("FeatureId", "Bu özellik başlığı zaten sistem içerisinde kullanılıyor.");
 
@@ -94,7 +94,7 @@ namespace Yummy.Business.Managers
             }
 
             _featureRepository.Update(feature);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
 
         #region Dosya İşlemleri

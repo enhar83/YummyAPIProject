@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,7 +42,7 @@ namespace Yummy.Business.Managers
             _environment = environment;
         }
 
-        public async Task RegisterAsync(AppUserRegisterDto dto)
+        public async Task RegisterAsync(AppUserRegisterDto dto, CancellationToken cancellationToken = default)
         {
             var isEmailExist = await _userManager.FindByEmailAsync(dto.Email);
             if (isEmailExist != null)
@@ -80,7 +81,7 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
         }
 
-        public async Task VerifyEmailAsync(VerifyEmailDto dto)
+        public async Task VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
@@ -103,7 +104,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task ForgotPasswordAsync(ForgotPasswordDto dto)
+        public async Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
@@ -127,7 +128,7 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
         }
 
-        public async Task ResetPasswordAsync(ResetPasswordDto dto)
+        public async Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
@@ -145,7 +146,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto)
+        public async Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
@@ -178,7 +179,7 @@ namespace Yummy.Business.Managers
             };
         }
 
-        public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto)
+        public async Task ChangePasswordAsync(string userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -196,7 +197,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task<IEnumerable<AppUserListDto>> GetAllUsersAsync()
+        public async Task<IEnumerable<AppUserListDto>> GetAllUsersAsync(CancellationToken cancellationToken = default)
         {
             var userDtos = await _userManager.Users
                 .ProjectTo<AppUserListDto>(_mapper.ConfigurationProvider)
@@ -225,7 +226,7 @@ namespace Yummy.Business.Managers
             return userDtos;
         }
 
-        public async Task<AppUserListDto> GetUserByIdAsync(Guid id)
+        public async Task<AppUserListDto> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(id.ToString());
             if (user == null)
@@ -239,7 +240,7 @@ namespace Yummy.Business.Managers
             return userDto;
         }
 
-        public async Task AssignRolesToUserAsync(AppUserAssignRoleDto dto)
+        public async Task AssignRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(dto.UserId.ToString());
             if (user == null)
@@ -268,7 +269,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto)
+        public async Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(dto.UserId.ToString());
             if (user == null)
@@ -297,7 +298,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto)
+        public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.Users.FirstOrDefaultAsync(u => u.RefreshToken == dto.RefreshToken);
 
@@ -326,7 +327,7 @@ namespace Yummy.Business.Managers
             };
         }
 
-        public async Task<GetAppUserProfileDto> GetUserProfileAsync(string userId)
+        public async Task<GetAppUserProfileDto> GetUserProfileAsync(string userId, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -336,7 +337,7 @@ namespace Yummy.Business.Managers
             return userProfileDto;
         }
 
-        public async Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto)
+        public async Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -369,7 +370,7 @@ namespace Yummy.Business.Managers
                 DeleteFile(oldImageUrl);
         }
 
-        public async Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto)
+        public async Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -398,7 +399,7 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(dto.NewEmail, subject, mailBody);
         }
 
-        public async Task EmailChangeConfirmAsync(string userId, ChangeEmailConfirmDto dto)
+        public async Task EmailChangeConfirmAsync(string userId, ChangeEmailConfirmDto dto, CancellationToken cancellationToken = default)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)

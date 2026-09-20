@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,7 +33,7 @@ namespace Yummy.Business.Managers
             _emailService = emailService;
         }
 
-        public async Task AddReservationAsync(string userId, ReservationCreateDto dto)
+        public async Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default)
         {
             var reservation = _mapper.Map<Reservation>(dto);
 
@@ -41,8 +42,8 @@ namespace Yummy.Business.Managers
 
             reservation.AppUserId = parsedUserId;
 
-            await _reservationRepository.AddAsync(reservation);
-            await _uow.SaveAsync();
+            await _reservationRepository.AddAsync(reservation, cancellationToken);
+            await _uow.SaveAsync(cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationReceivedTemplate.html");
             if (!File.Exists(templatePath))
@@ -62,9 +63,9 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(dto.Email, subject, mailBody);
         }
 
-        public async Task CancelReservationAsync(string userId, Guid reservationId)
+        public async Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default)
         {
-            var reservation = await _reservationRepository.GetByIdAsync(reservationId);
+            var reservation = await _reservationRepository.GetByIdAsync(reservationId, cancellationToken);
             if (reservation == null)
                 throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
 
@@ -82,7 +83,7 @@ namespace Yummy.Business.Managers
             reservation.ReservationStatus = ReservationStatus.Cancelled;
 
             _reservationRepository.Update(reservation);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationCancelledTemplate.html");
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
@@ -97,7 +98,7 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
 
-        public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto)
+        public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default)
         { 
             int maxTables = 10; 
             var reservationDuration = TimeSpan.FromHours(2); 
@@ -114,10 +115,8 @@ namespace Yummy.Business.Managers
             var targetDate = dto.ReservationDate.Date;
             var now = DateTime.Now;
 
-            var activeReservations = await _reservationRepository.GetAsQueryable()
-                .Where(r => r.ReservationDate.Date == targetDate &&
-                           (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending))
-                .ToListAsync();
+            var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
+                           (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
 
             var existingIntervals = activeReservations
                 .Select(r =>
@@ -163,57 +162,48 @@ namespace Yummy.Business.Managers
             return response;
         }
 
-        public async Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync()
+        public async Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync(CancellationToken cancellationToken = default)
         {
-            return await _reservationRepository.GetAsQueryable()
-                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
-                .ToListAsync();
+            var entities = await _reservationRepository.GetAllAsync(cancellationToken);
+            return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
         }
 
-        public async Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId)
+        public async Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId, CancellationToken cancellationToken = default)
         {
-            var reservation = await _reservationRepository.GetAsQueryable()
-                .Where(x => x.ReservationId == reservationId)
-                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
-                .FirstOrDefaultAsync();
+            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId, cancellationToken);
+            var reservation = _mapper.Map<IEnumerable<ReservationListDto>>(entities).FirstOrDefault();
 
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
         }
 
-        public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync()
+        public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default)
         {
-            return await _reservationRepository.GetAsQueryable()
-                .Where(x=>x.ReservationDate == DateTime.Today)
-                .ProjectTo<ReservationListDto>(_mapper.ConfigurationProvider)
-                .ToListAsync();
+            var entities = await _reservationRepository.GetWhereAsync(x=>x.ReservationDate == DateTime.Today, cancellationToken);
+            return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
         }
 
-        public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId)
+        public async Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            var reservation = await _reservationRepository.GetAsQueryable()
-                .Where(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId)
-                .ProjectTo<PastReservationByUserDto>(_mapper.ConfigurationProvider)
-                .FirstOrDefaultAsync();
+            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId, cancellationToken);
+            var reservation = _mapper.Map<IEnumerable<PastReservationByUserDto>>(entities).FirstOrDefault();
 
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
         }
 
-        public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId)
+        public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            return await _reservationRepository.GetAsQueryable()
-                 .Where(x => x.AppUserId == parsedUserId)
-                 .OrderByDescending(x => x.ReservationDate)
-                 .ProjectTo<PastReservationByUserDto>(_mapper.ConfigurationProvider)
-                 .ToListAsync();
+            var entities = await _reservationRepository.GetWhereAsync(x => x.AppUserId == parsedUserId, cancellationToken);
+            var sortedEntities = entities.OrderByDescending(x => x.ReservationDate);
+            return _mapper.Map<IEnumerable<PastReservationByUserDto>>(sortedEntities);
         }
 
-        public async Task UpdateReservationAsync(string userId, ReservationUpdateDto dto)
+        public async Task UpdateReservationAsync(string userId, ReservationUpdateDto dto, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
@@ -250,7 +240,7 @@ namespace Yummy.Business.Managers
             _mapper.Map(dto, reservation);
 
             _reservationRepository.Update(reservation);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationUpdatedTemplate.html");
 
@@ -271,15 +261,15 @@ namespace Yummy.Business.Managers
             await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
         }
 
-        public async Task UpdateReservationStatusAsync(UpdateReservationDto dto)
+        public async Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default)
         {
-            var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId);
+            var reservation = await _reservationRepository.GetByIdAsync(dto.ReservationId, cancellationToken);
             if (reservation == null)
                 throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
 
             reservation.ReservationStatus = dto.ReservationStatus;
             _reservationRepository.Update(reservation);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationStatusTemplate.html");
             if (!File.Exists(templatePath))

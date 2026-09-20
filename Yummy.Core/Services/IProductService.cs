@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,10 +11,10 @@ namespace Yummy.Core.Services
 {
     public interface IProductService
     {
-        Task<IEnumerable<ProductResponseDto>> GetAllAsync();
-        Task<ProductResponseDto?> GetByIdAsync(Guid id);
-        Task AddAsync(ProductCreateDto dto);
-        Task UpdateAsync(ProductUpdateDto dto);
-        Task DeleteAsync(Guid id);
+        Task<IEnumerable<ProductResponseDto>> GetAllAsync(CancellationToken cancellationToken = default);
+        Task<ProductResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task AddAsync(ProductCreateDto dto, CancellationToken cancellationToken = default);
+        Task UpdateAsync(ProductUpdateDto dto, CancellationToken cancellationToken = default);
+        Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     }
 }

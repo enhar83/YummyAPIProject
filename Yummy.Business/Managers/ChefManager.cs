@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,7 +33,7 @@ namespace Yummy.Business.Managers
             _environment = environment;
         }
 
-        public async Task AddAsync(ChefCreateDto dto)
+        public async Task AddAsync(ChefCreateDto dto, CancellationToken cancellationToken = default)
         {
             var chef = _mapper.Map<Chef>(dto);
             chef.ChefId = Guid.NewGuid();
@@ -40,40 +41,39 @@ namespace Yummy.Business.Managers
             if (dto.Image != null)
                 chef.ImageUrl = await SaveFileAsync(dto.Image);
 
-            await _chefRepository.AddAsync(chef);
-            await _uow.SaveAsync();
+            await _chefRepository.AddAsync(chef, cancellationToken);
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var chef = await _chefRepository.GetByIdAsync(id);
+            var chef = await _chefRepository.GetByIdAsync(id, cancellationToken);
             if (chef == null)
                 throw new LogicException("ChefId", "Silinmek istenen şef bulunamadı.");
             DeleteFile(chef.ImageUrl);
 
             _chefRepository.Remove(chef);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<ChefResponseDto>> GetAllAsync()
+        public async Task<IEnumerable<ChefResponseDto>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            return await _chefRepository.GetAsQueryable()
-                .ProjectTo<ChefResponseDto>(_mapper.ConfigurationProvider)
-                .ToListAsync();
+            var entities = await _chefRepository.GetAllAsync(cancellationToken);
+            return _mapper.Map<IEnumerable<ChefResponseDto>>(entities);
         }
 
-        public async Task<ChefResponseDto?> GetByIdAsync(Guid id)
+        public async Task<ChefResponseDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var chef = await _chefRepository.GetByIdAsync(id);
+            var chef = await _chefRepository.GetByIdAsync(id, cancellationToken);
             if (chef == null)
                 throw new LogicException("ChefId", "Aradığınız şef bulunamadı.");
 
             return _mapper.Map<ChefResponseDto>(chef);
         }
 
-        public async Task UpdateAsync(ChefUpdateDto dto)
+        public async Task UpdateAsync(ChefUpdateDto dto, CancellationToken cancellationToken = default)
         {
-            var chef = await _chefRepository.GetByIdAsync(dto.ChefId);
+            var chef = await _chefRepository.GetByIdAsync(dto.ChefId, cancellationToken);
             if (chef == null)
                 throw new LogicException("ChefId", "Güncellenmek istenen şef bulunamadı.");
 
@@ -86,7 +86,7 @@ namespace Yummy.Business.Managers
             }
 
             _chefRepository.Update(chef);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
 
         #region Dosya İşlemleri

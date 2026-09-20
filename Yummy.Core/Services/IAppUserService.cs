@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,20 +10,20 @@ namespace Yummy.Core.Services
 {
     public interface IAppUserService
     {
-        Task RegisterAsync(AppUserRegisterDto dto);
-        Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto);
-        Task VerifyEmailAsync(VerifyEmailDto dto);
-        Task ForgotPasswordAsync(ForgotPasswordDto dto);
-        Task<IEnumerable<AppUserListDto>> GetAllUsersAsync();
-        Task<AppUserListDto> GetUserByIdAsync(Guid id);
-        Task ResetPasswordAsync(ResetPasswordDto dto);
-        Task ChangePasswordAsync(string userId, ChangePasswordDto dto);
-        Task AssignRolesToUserAsync(AppUserAssignRoleDto dto);
-        Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto);
-        Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto);
-        Task<GetAppUserProfileDto> GetUserProfileAsync(string userId);
-        Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto);
-        Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto);
-        Task EmailChangeConfirmAsync(string userId, ChangeEmailConfirmDto dto);
+        Task RegisterAsync(AppUserRegisterDto dto, CancellationToken cancellationToken = default);
+        Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto, CancellationToken cancellationToken = default);
+        Task VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default);
+        Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default);
+        Task<IEnumerable<AppUserListDto>> GetAllUsersAsync(CancellationToken cancellationToken = default);
+        Task<AppUserListDto> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        Task ResetPasswordAsync(ResetPasswordDto dto, CancellationToken cancellationToken = default);
+        Task ChangePasswordAsync(string userId, ChangePasswordDto dto, CancellationToken cancellationToken = default);
+        Task AssignRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default);
+        Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default);
+        Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default);
+        Task<GetAppUserProfileDto> GetUserProfileAsync(string userId, CancellationToken cancellationToken = default);
+        Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto, CancellationToken cancellationToken = default);
+        Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto, CancellationToken cancellationToken = default);
+        Task EmailChangeConfirmAsync(string userId, ChangeEmailConfirmDto dto, CancellationToken cancellationToken = default);
     }
 }

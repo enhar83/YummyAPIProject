@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,7 +29,7 @@ namespace Yummy.Business.Managers
             _userManager = userManager;
         }
 
-        public async Task CreateRoleAsync(AppRoleCreateDto dto)
+        public async Task CreateRoleAsync(AppRoleCreateDto dto, CancellationToken cancellationToken = default)
         {
             var role = _mapper.Map<AppRole>(dto);
             bool isRoleExists = await _roleManager.RoleExistsAsync(role.Name!);
@@ -45,7 +46,7 @@ namespace Yummy.Business.Managers
             }   
         }
 
-        public async Task DeleteRoleAsync(Guid id)
+        public async Task DeleteRoleAsync(Guid id, CancellationToken cancellationToken = default)
         {
             var role = await _roleManager.FindByIdAsync(id.ToString());
             if (role == null)
@@ -59,7 +60,7 @@ namespace Yummy.Business.Managers
             }
         }
 
-        public async Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync()
+        public async Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync(CancellationToken cancellationToken = default)
         {
             var roles = await _roleManager.Roles
                 .ProjectTo<AppRoleListDto>(_mapper.ConfigurationProvider)
@@ -68,7 +69,7 @@ namespace Yummy.Business.Managers
             return roles;
         }
 
-        public async Task<IEnumerable<AppUserListDto>> GetAllUsersInRoleAsync(Guid roleId)
+        public async Task<IEnumerable<AppUserListDto>> GetAllUsersInRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
         {
             var role = await _roleManager.FindByIdAsync(roleId.ToString());
             if (role == null)
@@ -86,7 +87,7 @@ namespace Yummy.Business.Managers
             return userDtos;
         }
 
-        public async Task UpdateRoleAsync(AppRoleUpdateDto dto)
+        public async Task UpdateRoleAsync(AppRoleUpdateDto dto, CancellationToken cancellationToken = default)
         {
             var existingRole = await _roleManager.FindByIdAsync(dto.Id.ToString());
             if (existingRole == null)

@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,15 +10,15 @@ namespace Yummy.Core.Services
 {
     public interface IReservationService
     {
-        Task AddReservationAsync(string userId, ReservationCreateDto dto);
-        Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId);
-        Task CancelReservationAsync(string userId, Guid reservationId);
-        Task UpdateReservationAsync(string userId, ReservationUpdateDto dto);
-        Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId);
-        Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync();
-        Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId);
-        Task UpdateReservationStatusAsync(UpdateReservationDto dto);
-        Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync();
-        Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto);
+        Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default);
+        Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId, CancellationToken cancellationToken = default);
+        Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
+        Task UpdateReservationAsync(string userId, ReservationUpdateDto dto, CancellationToken cancellationToken = default);
+        Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
+        Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync(CancellationToken cancellationToken = default);
+        Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId, CancellationToken cancellationToken = default);
+        Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default);
+        Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default);
+        Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default);
     }
 }

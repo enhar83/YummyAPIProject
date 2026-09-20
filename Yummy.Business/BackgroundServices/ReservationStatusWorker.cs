@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -38,9 +38,7 @@ namespace Yummy.Business.BackgroundServices
                         var reservationRepository = scope.ServiceProvider.GetRequiredService<IGenericRepository<Reservation>>();
                         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                        var activeReservations = await reservationRepository.GetAsQueryable()
-                            .Where(r => r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending)
-                            .ToListAsync(stoppingToken);
+                        var activeReservations = await reservationRepository.GetWhereAsync(r => r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending, stoppingToken);
 
                         bool hasChanges = false;
 

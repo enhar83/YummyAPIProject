@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,7 +21,7 @@ namespace Yummy.Business.Managers
             _emailSettings = emailSettings.Value;
         }
 
-        public async Task SendEmailAsync(string toEmail, string subject, string body)
+        public async Task SendEmailAsync(string toEmail, string subject, string body, CancellationToken cancellationToken = default)
         {
             var smtpClient = new SmtpClient(_emailSettings.Host)
             {

@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +10,10 @@ namespace Yummy.Core.Services
 {
     public interface ITestimonialService
     {
-        Task AddTestimonialAsync(string userId, TestimonialCreateDto dto);
-        Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId);
-        Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync();
-        Task ToggleApproveAsync(Guid testimonialId);
-        Task DeleteTestimonialAsync(Guid testimonialId);
+        Task AddTestimonialAsync(string userId, TestimonialCreateDto dto, CancellationToken cancellationToken = default);
+        Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId, CancellationToken cancellationToken = default);
+        Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync(CancellationToken cancellationToken = default);
+        Task ToggleApproveAsync(Guid testimonialId, CancellationToken cancellationToken = default);
+        Task DeleteTestimonialAsync(Guid testimonialId, CancellationToken cancellationToken = default);
     }
 }

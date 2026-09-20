@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -21,7 +21,7 @@ namespace Yummy.Data.Repositories
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
+        public async Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
             foreach (var include in includes)
@@ -29,16 +29,16 @@ namespace Yummy.Data.Repositories
                 query = query.Include(include);
             }
 
-            return await query.ToListAsync();
+            return await query.ToListAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate) =>
-            await _dbSet.Where(predicate).ToListAsync();
+        public async Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default) =>
+            await _dbSet.Where(predicate).ToListAsync(cancellationToken);
 
-        public async Task<T?> GetByIdAsync(Guid id) =>
-            await _dbSet.FindAsync(id);
+        public async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+            await _dbSet.FindAsync(new object[] { id }, cancellationToken);
 
-        public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, params Expression<Func<T, object>>[] includes)
+        public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
             foreach (var include in includes)
@@ -46,11 +46,11 @@ namespace Yummy.Data.Repositories
                 query = query.Include(include);
             }
 
-            return await query.FirstOrDefaultAsync(predicate);
+            return await query.FirstOrDefaultAsync(predicate, cancellationToken);
         }
 
-        public async Task AddAsync(T entity) =>
-            await _dbSet.AddAsync(entity);
+        public async Task AddAsync(T entity, CancellationToken cancellationToken = default) =>
+            await _dbSet.AddAsync(entity, cancellationToken);
 
         public void Update(T entity) =>
             _dbSet.Update(entity);
@@ -58,9 +58,7 @@ namespace Yummy.Data.Repositories
         public void Remove(T entity) =>
             _dbSet.Remove(entity);
 
-        public IQueryable<T> GetAsQueryable() => _dbSet.AsQueryable();
-
-        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate) =>
-            await _dbSet.AnyAsync(predicate);
+        public async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default) =>
+            await _dbSet.AnyAsync(predicate, cancellationToken);
     }
 }

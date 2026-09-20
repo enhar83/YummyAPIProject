@@ -1,3 +1,4 @@
+using System.Threading;
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -32,13 +33,13 @@ namespace Yummy.Business.Managers
             _mapper = mapper;
         }
 
-        public async Task AddTestimonialAsync(string userId, TestimonialCreateDto dto)
+        public async Task AddTestimonialAsync(string userId, TestimonialCreateDto dto, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            bool hasCompletedReservation = await _reservationRepository.GetAsQueryable()
-                .AnyAsync(r => r.AppUserId == parsedUserId && r.ReservationStatus == ReservationStatus.Completed);
+            bool hasCompletedReservation = await _reservationRepository
+                .AnyAsync(r => r.AppUserId == parsedUserId && r.ReservationStatus == ReservationStatus.Completed, cancellationToken);
 
             if (!hasCompletedReservation)
                 throw new LogicException("NotAllowed", "Yorum yapabilmek için restoranımızda tamamlanmış en az bir rezervasyonunuzun olması gerekmektedir.");
@@ -46,50 +47,47 @@ namespace Yummy.Business.Managers
             var testimonial = _mapper.Map<Testimonial>(dto);
             testimonial.AppUserId = parsedUserId;
 
-            await _testimonialRepository.AddAsync(testimonial);
-            await _uow.SaveAsync();
+            await _testimonialRepository.AddAsync(testimonial, cancellationToken);
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task DeleteTestimonialAsync(Guid testimonialId)
+        public async Task DeleteTestimonialAsync(Guid testimonialId, CancellationToken cancellationToken = default)
         {
-            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId);
+            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId, cancellationToken);
             if (testimonial == null)
                 throw new LogicException("InvalidId", "Silinmek istenen yoruma ait Id bulunamadı.");
 
             _testimonialRepository.Remove(testimonial);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
 
-        public async Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync()
+        public async Task<IEnumerable<AllTestimonialListDto>> GetAllTestimonialsAsync(CancellationToken cancellationToken = default)
         {
-            return await _testimonialRepository.GetAsQueryable()
-                 .OrderByDescending(x => x.CreatedDate)
-                 .ProjectTo<AllTestimonialListDto>(_mapper.ConfigurationProvider)
-                 .ToListAsync();
+            var entities = await _testimonialRepository.GetAllAsync(cancellationToken);
+            var sortedEntities = entities.OrderByDescending(x => x.CreatedDate);
+            return _mapper.Map<IEnumerable<AllTestimonialListDto>>(sortedEntities);
         }
 
-        public async Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId)
+        public async Task<IEnumerable<UsersPastTestimonialsListDto>> GetUsersPastTestimonialsAsync(string userId, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            return await _testimonialRepository.GetAsQueryable()
-                 .Where(x => x.AppUserId == parsedUserId)
-                 .OrderByDescending(x => x.CreatedDate)
-                 .ProjectTo<UsersPastTestimonialsListDto>(_mapper.ConfigurationProvider)
-                 .ToListAsync();
+            var entities = await _testimonialRepository.GetWhereAsync(x => x.AppUserId == parsedUserId, cancellationToken);
+            var sortedEntities = entities.OrderByDescending(x => x.CreatedDate);
+            return _mapper.Map<IEnumerable<UsersPastTestimonialsListDto>>(sortedEntities);
         }
 
-        public async Task ToggleApproveAsync(Guid testimonialId)
+        public async Task ToggleApproveAsync(Guid testimonialId, CancellationToken cancellationToken = default)
         {
-            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId);
+            var testimonial = await _testimonialRepository.GetByIdAsync(testimonialId, cancellationToken);
             if (testimonial == null)
                 throw new LogicException("NotFound", "Aranılan yorum bulunamadı.");
 
             testimonial.IsApproved = !testimonial.IsApproved;
 
             _testimonialRepository.Update(testimonial);
-            await _uow.SaveAsync();
+            await _uow.SaveAsync(cancellationToken);
         }
     }
 }
