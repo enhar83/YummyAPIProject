@@ -18,5 +18,6 @@ namespace Yummy.Core.DTOs.ReservationDTOs
         public string ReservationEndTime { get; set; } = null!;
         public int NumberOfGuests { get; set; }
         public string? Message { get; set; }
+        public Guid? SelectedTableId { get; set; }
     }
 }

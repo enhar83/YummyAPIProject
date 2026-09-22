@@ -7,5 +7,6 @@ namespace Yummy.Core.DTOs.DiningTableDTOs
         public string TableNo { get; set; }
         public int Capacity { get; set; }
         public bool IsActive { get; set; }
+        public string? Location { get; set; }
     }
 }

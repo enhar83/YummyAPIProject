@@ -20,5 +20,6 @@ namespace Yummy.Core.Services
         Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default);
         Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default);
+        Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default);
     }
 }

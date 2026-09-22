@@ -9,7 +9,8 @@ namespace Yummy.Entity
         public string TableNo { get; set; } = null!;
         public int Capacity { get; set; }
         public bool IsActive { get; set; } = true;
+        public string? Location { get; set; } 
         
-        public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>();
+        public ICollection<Reservation> Reservations { get; set; } = new List<Reservation>(); // bir masa birden fazla rezervasyon için kullanılabilir.
     }
 }

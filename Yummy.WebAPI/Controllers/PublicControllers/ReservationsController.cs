@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -80,11 +80,19 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpGet("check-availability")]
+        [AllowAnonymous]
         public async Task<IActionResult> CheckAvailability([FromQuery] CheckAvailabilityRequestDto dto)
         {
             var result = await _reservationService.CheckAvailabilityAsync(dto);
             return Ok(result);
         }
 
+        [HttpGet("map-status")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetMapStatus([FromQuery] DateTime date, [FromQuery] string time, [FromQuery] string endTime)
+        {
+            var statuses = await _reservationService.GetTableStatusesForMapAsync(date, time, endTime);
+            return Ok(statuses);
+        }
     }
 }

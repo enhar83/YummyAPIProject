@@ -18,8 +18,8 @@ namespace Yummy.Entity
         public DateTime CreatedDate { get; set; } = DateTime.Now;
         public string? RefreshToken { get; set; }
         public DateTime? RefreshTokenExpiryTime { get; set; }
-        public ICollection<Message> Messages { get; set; } = new HashSet<Message>();
-        public ICollection<Reservation> Reservations { get; set; } = new HashSet<Reservation>();
-        public ICollection<Testimonial> Testimonials { get; set; } = new HashSet<Testimonial>();
+        public ICollection<Message> Messages { get; set; } = new HashSet<Message>(); // bir kullanıcı birden fazla mesaj atabilir.
+        public ICollection<Reservation> Reservations { get; set; } = new HashSet<Reservation>(); // bir kullanıcı birden fazla rezervasyon yapabilir.
+        public ICollection<Testimonial> Testimonials { get; set; } = new HashSet<Testimonial>(); // bir kullanıcı birden fazla yorum yapabilir.
     }
 }
