@@ -368,7 +368,7 @@ namespace Yummy.Business.Managers
                 .Replace("{{Surname}}", reservation.Surname)
                 .Replace("{{StatusTitle}}", statusTitle)
                 .Replace("{{StatusMessage}}", statusMessage)
-                .Replace("{{StatusColor}}", statusColor)
+                .Replace("#112233", statusColor)
                 .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{Time}}", reservation.ReservationTime)
                 .Replace("{{Guests}}", reservation.NumberOfGuests.ToString())
