@@ -10,7 +10,7 @@ namespace Yummy.Core.IRepositories
     public interface IGenericRepository<T> where T : class
     {
         Task<IEnumerable<T>> GetAllAsync(CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
-        Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
+        Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
         Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
         Task AddAsync(T entity, CancellationToken cancellationToken = default);

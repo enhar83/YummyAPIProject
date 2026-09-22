@@ -40,8 +40,15 @@ namespace Yummy.Data.Repositories
         // predicate: LINQ sorgusu, koşul ifadesi.
         // .Where(): Koşula uyan verileri filtreler.
         // .ToListAsync(): Filtrelenmiş verileri DB'den çeker.
-        public async Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default) =>
-            await _dbSet.Where(predicate).ToListAsync(cancellationToken);
+        public async Task<IEnumerable<T>> GetWhereAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet;
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+            return await query.Where(predicate).ToListAsync(cancellationToken);
+        }
 
 
         // .FindAsync(): ID'ye göre veri arar. Eğer kayıt yoksa null döner.

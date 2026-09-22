@@ -97,7 +97,9 @@ namespace Yummy.Business.Managers
                 .Replace("{{Date}}", dto.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{Time}}", dto.ReservationTime)
                 .Replace("{{Guests}}", dto.NumberOfGuests.ToString())
-                .Replace("{{Phone}}", dto.Phone);
+                .Replace("{{Phone}}", dto.Phone)
+                .Replace("{{TableNo}}", selectedTable.TableNo)
+                .Replace("{{Location}}", selectedTable.Location ?? "Belirtilmemiş");
 
             var subject = "Yummy Restoran - Rezervasyon Talebiniz Alındı";
 
@@ -129,12 +131,15 @@ namespace Yummy.Business.Managers
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationCancelledTemplate.html");
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
 
+            var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
             var mailBody = emailTemplate
                 .Replace("{{Name}}", reservation.Name)
                 .Replace("{{Surname}}", reservation.Surname)
                 .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{Time}}", reservation.ReservationTime)
-                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString());
+                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString())
+                .Replace("{{TableNo}}", table?.TableNo ?? "")
+                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
 
             await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
         }
@@ -182,13 +187,13 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync(CancellationToken cancellationToken = default)
         {
-            var entities = await _reservationRepository.GetAllAsync(cancellationToken);
+            var entities = await _reservationRepository.GetAllAsync(cancellationToken, x => x.DiningTable);
             return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
         }
 
         public async Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId, CancellationToken cancellationToken = default)
         {
-            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId, cancellationToken);
+            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId, cancellationToken, x => x.DiningTable);
             var reservation = _mapper.Map<IEnumerable<ReservationListDto>>(entities).FirstOrDefault();
 
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
@@ -196,7 +201,7 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default)
         {
-            var entities = await _reservationRepository.GetWhereAsync(x=>x.ReservationDate == DateTime.Today, cancellationToken);
+            var entities = await _reservationRepository.GetWhereAsync(x=>x.ReservationDate == DateTime.Today, cancellationToken, x => x.DiningTable);
             return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
         }
 
@@ -205,7 +210,7 @@ namespace Yummy.Business.Managers
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId, cancellationToken);
+            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationId == reservationId && x.AppUserId == parsedUserId, cancellationToken, x => x.DiningTable);
             var reservation = _mapper.Map<IEnumerable<PastReservationByUserDto>>(entities).FirstOrDefault();
 
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
@@ -216,7 +221,7 @@ namespace Yummy.Business.Managers
             if (!Guid.TryParse(userId, out Guid parsedUserId))
                 throw new LogicException("InvalidUserId", "Kullanıcı kimliği geçersiz.");
 
-            var entities = await _reservationRepository.GetWhereAsync(x => x.AppUserId == parsedUserId, cancellationToken);
+            var entities = await _reservationRepository.GetWhereAsync(x => x.AppUserId == parsedUserId, cancellationToken, x => x.DiningTable);
             var sortedEntities = entities.OrderByDescending(x => x.ReservationDate);
             return _mapper.Map<IEnumerable<PastReservationByUserDto>>(sortedEntities);
         }
@@ -300,12 +305,15 @@ namespace Yummy.Business.Managers
 
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
 
+            var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
             var mailBody = emailTemplate
                 .Replace("{{Name}}", reservation.Name)
                 .Replace("{{Surname}}", reservation.Surname)
                 .Replace("{{NewDate}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{NewTime}}", reservation.ReservationTime)
-                .Replace("{{NewGuests}}", reservation.NumberOfGuests.ToString());
+                .Replace("{{NewGuests}}", reservation.NumberOfGuests.ToString())
+                .Replace("{{TableNo}}", table?.TableNo ?? "")
+                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
 
             var subject = "Yummy Restoran - Rezervasyonunuz Güncellendi ve Onay Bekliyor";
 
@@ -354,6 +362,7 @@ namespace Yummy.Business.Managers
 
             var emailTemplate = await File.ReadAllTextAsync(templatePath);
 
+            var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
             var mailBody = emailTemplate
                 .Replace("{{Name}}", reservation.Name)
                 .Replace("{{Surname}}", reservation.Surname)
@@ -362,7 +371,9 @@ namespace Yummy.Business.Managers
                 .Replace("{{StatusColor}}", statusColor)
                 .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
                 .Replace("{{Time}}", reservation.ReservationTime)
-                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString());
+                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString())
+                .Replace("{{TableNo}}", table?.TableNo ?? "")
+                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
 
             var subject = $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})";
 

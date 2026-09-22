@@ -26,6 +26,8 @@ namespace Yummy.Business.Mappings
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore());
 
             CreateMap<Reservation, PastReservationByUserDto>()
+                .ForMember(dest => dest.TableNo, opt => opt.MapFrom(src => src.DiningTable.TableNo))
+                .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.DiningTable.Location))
                 .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src =>
                     src.ReservationStatus == ReservationStatus.Pending ? "Onay Bekliyor" :
                     src.ReservationStatus == ReservationStatus.Approved ? "Onaylandı" :
@@ -34,6 +36,8 @@ namespace Yummy.Business.Mappings
                 ));
 
             CreateMap<Reservation, ReservationListDto>()
+                .ForMember(dest => dest.TableNo, opt => opt.MapFrom(src => src.DiningTable.TableNo))
+                .ForMember(dest => dest.Location, opt => opt.MapFrom(src => src.DiningTable.Location))
                 .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src =>
                     src.ReservationStatus == ReservationStatus.Pending ? "Onay Bekliyor" :
                     src.ReservationStatus == ReservationStatus.Approved ? "Onaylandı" :
