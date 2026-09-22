@@ -47,6 +47,10 @@ namespace Yummy.Business.Managers
             var targetDate = dto.ReservationDate.Date;
             if (!TimeSpan.TryParse(dto.ReservationTime, out TimeSpan reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out TimeSpan reqEnd))
                 throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
+                
+            var newReservationDateTime = targetDate.Add(reqStart);
+            if (newReservationDateTime < DateTime.Now)
+                throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon yapılamaz.");
             
             var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
                            (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
@@ -260,6 +264,10 @@ namespace Yummy.Business.Managers
                 var targetDate = dto.ReservationDate.Date;
                 if (!TimeSpan.TryParse(dto.ReservationTime, out TimeSpan reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out TimeSpan reqEnd))
                     throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
+                    
+                var newReservationDateTime = targetDate.Add(reqStart);
+                if (newReservationDateTime < DateTime.Now)
+                    throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon güncellenemez.");
                     
                 var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate && r.ReservationId != reservation.ReservationId &&
                                (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
