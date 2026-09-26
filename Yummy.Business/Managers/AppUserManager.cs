@@ -131,11 +131,16 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
 
+            // önce sıfırlama token'ı doğrulanır. Aksi halde "eski şifreyle aynı" kontrolü, token'ı olmayan birinin şifre tahmini yapmasına (lockout'a takılmadan) imkan verir.
+            var isTokenValid = await _userManager.VerifyUserTokenAsync(user, _userManager.Options.Tokens.PasswordResetTokenProvider, UserManager<AppUser>.ResetPasswordTokenPurpose, dto.Token);
+            if (!isTokenValid)
+                throw new LogicException("InvalidToken", "Şifre sıfırlama kodu hatalı veya süresi dolmuş.");
+
             var isSameAsOldPassword = await _userManager.CheckPasswordAsync(user, dto.NewPassword);
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
-            RevokeSessions(user); // şifre sıfırlanınca açık oturumlar sonlandırılır. ResetPasswordAsync başarılı olursa kullanıcıyı güncellediği için bu değişiklik de kaydedilir.
+            RevokeRefreshToken(user); // security stamp'e burada dokunulmaz: token doğrulaması stamp'e bağlıdır. ResetPasswordAsync başarılı olunca stamp'i kendisi yeniler, böylece açık access token'lar da geçersiz olur.
 
             var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword); //  ForgotPasswordAsync içerisinde üretilen token burada kontrol edilir.
             if (!result.Succeeded)
@@ -197,11 +202,21 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
 
-            var isSameAsOldPassword = await _userManager.CheckPasswordAsync(user, dto.NewPassword);
-            if (isSameAsOldPassword)
+            if (await _userManager.IsLockedOutAsync(user))
+                throw new LogicException("AccountLocked", "Çok fazla hatalı şifre denemesi yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
+
+            // önce mevcut şifre doğrulanır; hatalı denemeler login ile aynı lockout sayacına yazılır.
+            if (!await _userManager.CheckPasswordAsync(user, dto.OldPassword))
+            {
+                await _userManager.AccessFailedAsync(user);
+                throw new LogicException("InvalidOldPassword", "Mevcut şifreniz hatalı.");
+            }
+
+            // mevcut şifre doğrulandığı için "aynı şifre" kontrolü düz karşılaştırma ile yapılır; yeni şifre hash'lenerek denenmez.
+            if (dto.NewPassword == dto.OldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
-            RevokeSessions(user); // şifre değişince diğer cihazlardaki oturumlar sonlandırılır. ChangePasswordAsync başarılı olursa bu değişiklik de kaydedilir.
+            RevokeRefreshToken(user); // ChangePasswordAsync başarılı olunca security stamp'i kendisi yeniler; açık access token'lar da geçersiz olur.
 
             var result = await _userManager.ChangePasswordAsync(user, dto.OldPassword, dto.NewPassword);
             if (!result.Succeeded)
@@ -442,7 +457,7 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
 
-            RevokeSessions(user); // e-posta değişince açık oturumlar sonlandırılır. ChangeEmailAsync başarılı olursa bu değişiklik de kaydedilir.
+            RevokeRefreshToken(user); // security stamp'e burada dokunulmaz: e-posta token'ının doğrulaması stamp'e bağlıdır. ChangeEmailAsync başarılı olunca stamp'i kendisi yeniler.
 
             var result = await _userManager.ChangeEmailAsync(user, dto.NewEmail, dto.Token);
 
@@ -465,12 +480,20 @@ namespace Yummy.Business.Managers
 
         // kullanıcının tüm oturumları sonlandırılır: refresh token silinir ve security stamp yenilenir.
         // access token içerisindeki stamp, her istekte db'deki stamp ile karşılaştırıldığı için (Program.cs -> OnTokenValidated) eski access token'lar da anında geçersiz olur.
-        // değişiklikler, bu metottan sonra çağrılan UserManager işleminin (UpdateAsync, ChangePasswordAsync, AddToRolesAsync vb.) kullanıcıyı güncellemesiyle kaydedilir.
+        // değişiklikler, bu metottan sonra çağrılan UserManager işleminin (UpdateAsync, AddToRolesAsync vb.) kullanıcıyı güncellemesiyle kaydedilir.
+        // ⚠️ e-posta ile gönderilen token'ı doğrulayan işlemlerden (ResetPasswordAsync, ChangeEmailAsync) önce KULLANILMAMALIDIR:
+        // Identity bu token'ları stamp ile doğrular, stamp önceden değişirse token her zaman geçersiz sayılır. Bu işlemler için RevokeRefreshToken kullanılır.
         private static void RevokeSessions(AppUser user)
+        {
+            RevokeRefreshToken(user);
+            user.SecurityStamp = Convert.ToHexString(RandomNumberGenerator.GetBytes(20));
+        }
+
+        // sadece refresh token silinir. Şifre/e-posta değişikliğinde stamp'i Identity kendisi yenilediği için bu metot yeterlidir.
+        private static void RevokeRefreshToken(AppUser user)
         {
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
-            user.SecurityStamp = Convert.ToHexString(RandomNumberGenerator.GetBytes(20));
         }
         #endregion
 
