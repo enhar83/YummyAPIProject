@@ -2,11 +2,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.Services;
+using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
     [Route("api/admin/testimonials")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [ApiController]
     public class AdminTestimonialsController : ControllerBase
     {

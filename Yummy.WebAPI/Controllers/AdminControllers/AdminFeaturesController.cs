@@ -3,10 +3,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.FeatureDTOs;
 using Yummy.Core.Services;
+using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [Route("api/admin/features")]
     [ApiController]
     public class AdminFeaturesController : ControllerBase

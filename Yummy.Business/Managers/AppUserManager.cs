@@ -52,6 +52,10 @@ namespace Yummy.Business.Managers
             if (isUsernameExist != null)
                 throw new LogicException("Username", "Bu kullanıcı adı zaten alınmış. Lütfen farklı bir kullanıcı adı seçin.");
 
+            // kullanıcı oluşturulmadan önce Customer rolünün varlığı kontrol edilir; rol yoksa rolsüz kullanıcı oluşmasın diye kayıt hiç başlamaz.
+            if (!await _roleManager.RoleExistsAsync(RoleNames.Customer))
+                throw new LogicException("RoleNotFound", "Kayıt işlemi şu anda gerçekleştirilemiyor. Lütfen daha sonra tekrar deneyin.");
+
             var user = _mapper.Map<AppUser>(dto);
 
             SetNewActivationCode(user); // kullanıcıya süreli, 6 haneli bir activation code oluşturulur.
@@ -62,6 +66,14 @@ namespace Yummy.Business.Managers
             if (!result.Succeeded)
             {
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("RegisterError", errors);
+            }
+
+            var roleResult = await _userManager.AddToRoleAsync(user, RoleNames.Customer); // kayıt olan her kullanıcı Customer rolüne atanır.
+            if (!roleResult.Succeeded)
+            {
+                await _userManager.DeleteAsync(user); // rol atanamazsa rolsüz kullanıcı sistemde kalmasın diye kayıt geri alınır.
+                var errors = string.Join(" | ", roleResult.Errors.Select(e => e.Description));
                 throw new LogicException("RegisterError", errors);
             }
 

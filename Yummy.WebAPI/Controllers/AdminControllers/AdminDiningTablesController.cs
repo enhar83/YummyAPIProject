@@ -4,10 +4,11 @@ using System;
 using System.Threading.Tasks;
 using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Core.Services;
+using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [Route("api/admin/dining-tables")]
     [ApiController]
     public class AdminDiningTablesController : ControllerBase

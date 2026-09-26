@@ -53,8 +53,8 @@ namespace Yummy.Business.Managers
             if (role == null)
                 throw new LogicException("RoleNotFound", "Silinmek istenen rol sistemde bulunamadı.");
 
-            if (IsAdminRole(role))
-                throw new LogicException("ProtectedRole", "Admin rolü sistem rolüdür ve silinemez.");
+            if (IsSystemRole(role))
+                throw new LogicException("ProtectedRole", $"{role.Name} rolü sistem rolüdür ve silinemez.");
 
             var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!); // rol silindikten sonra bu kullanıcılar bulunamayacağı için önceden alınır.
 
@@ -103,9 +103,9 @@ namespace Yummy.Business.Managers
             var isNameChanged = existingRole.Name != dto.Name;
             var isDeactivated = !existingRole.IsDeleted && dto.IsDeleted;
 
-            // admin rolünün sadece açıklaması güncellenebilir; adı değiştirilemez ve pasife alınamaz.
-            if (IsAdminRole(existingRole) && (isNameChanged || isDeactivated))
-                throw new LogicException("ProtectedRole", "Admin rolü sistem rolüdür; adı değiştirilemez ve pasife alınamaz.");
+            // sistem rollerinin (Admin, Customer) sadece açıklaması güncellenebilir; adı değiştirilemez ve pasife alınamaz.
+            if (IsSystemRole(existingRole) && (isNameChanged || isDeactivated))
+                throw new LogicException("ProtectedRole", $"{existingRole.Name} rolü sistem rolüdür; adı değiştirilemez ve pasife alınamaz.");
 
             if (isNameChanged)
             {
@@ -131,8 +131,8 @@ namespace Yummy.Business.Managers
             await RevokeSessionsAsync(usersToRevoke);
         }
 
-        private static bool IsAdminRole(AppRole role)
-            => string.Equals(role.Name, RoleNames.Admin, StringComparison.OrdinalIgnoreCase);
+        private static bool IsSystemRole(AppRole role)
+            => RoleNames.SystemRoles.Contains(role.Name, StringComparer.OrdinalIgnoreCase);
 
         // kullanıcıların refresh token'ı silinir ve security stamp yenilenir; mevcut access token'lar anında geçersiz olur (Program.cs -> OnTokenValidated).
         private async Task RevokeSessionsAsync(IEnumerable<AppUser> users)

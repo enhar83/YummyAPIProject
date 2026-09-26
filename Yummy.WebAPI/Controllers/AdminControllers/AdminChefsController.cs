@@ -4,10 +4,11 @@ using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.CategoryDTOs;
 using Yummy.Core.DTOs.ChefDTOs;
 using Yummy.Core.Services;
+using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [Route("api/admin/chefs")]
     [ApiController]
 

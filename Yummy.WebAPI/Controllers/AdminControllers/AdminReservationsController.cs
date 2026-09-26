@@ -5,11 +5,12 @@ using Microsoft.AspNetCore.Mvc;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
+using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
     [Route("api/admin/reservations")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = RoleNames.Admin)]
     [ApiController]
     public class AdminReservationsController : ControllerBase
     {
