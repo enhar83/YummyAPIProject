@@ -15,11 +15,13 @@ namespace Yummy.Business.Validators.ReservationValidators
         // tarih kontrolleri sunucunun değil restoranın yerel saatine göre yapılır.
         public UpdateReservationValidator(TimeProvider timeProvider)
         {
+            // boş Guid (00000000-...) ile gelen istek manager'a ulaşmadan reddedilir.
             RuleFor(x => x.ReservationId)
                 .NotEmpty().WithMessage("Geçerli bir rezervasyon ID'si giriniz.");
 
             RuleFor(x => x.ReservationDate)
                 .NotEmpty().WithMessage("Rezervasyon tarihi boş bırakılamaz.")
+                // .Date ile karşılaştırılır: istemci saat kısmı gönderse bile (örn. 2026-10-26T19:00) son geçerli gün reddedilmez.
                 .Must(date => date.Date >= timeProvider.GetLocalToday()).WithMessage("Geçmiş bir tarihe rezervasyon yapılamaz.")
                 .Must(date => date.Date <= timeProvider.GetLocalToday().AddMonths(1)).WithMessage("En fazla 1 ay (30 gün) sonrasına rezervasyon yapabilirsiniz.");
 
@@ -46,6 +48,7 @@ namespace Yummy.Business.Validators.ReservationValidators
                     return false;
                 }).WithMessage("Bitiş saati başlangıçtan sonra olmalı, en az 30 dakika ve en fazla 4 saat sürmelidir. Ayrıca en geç 23:00'da bitebilir.");
 
+            // veritabanındaki kolon uzunluğu ile aynı sınır.
             RuleFor(x => x.Message)
                 .MaximumLength(500).WithMessage("Mesaj en fazla 500 karakter olabilir.");
 

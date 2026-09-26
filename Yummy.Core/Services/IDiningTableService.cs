@@ -6,6 +6,7 @@ using Yummy.Core.DTOs.DiningTableDTOs;
 
 namespace Yummy.Core.Services
 {
+    // masa silme işlemi bilinçli olarak yoktur; masalar UpdateAsync ile pasife alınır (bkz. DiningTableManager).
     public interface IDiningTableService
     {
         Task<IEnumerable<DiningTableListDto>> GetAllAsync(CancellationToken cancellationToken = default);

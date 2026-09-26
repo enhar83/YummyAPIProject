@@ -7,6 +7,8 @@ namespace Yummy.Data.Migrations
     /// <inheritdoc />
     public partial class AddReservationFieldLimitsAndDateIndex : Migration
     {
+        // rezervasyon metin alanlarına validator ile aynı uzunluk sınırları konur ve tarihe göre yapılan sorgular için ReservationDate index'i eklenir.
+        // uygulanmadan önce hiçbir kaydın yeni sınırları aşmadığı kontrol edilmiştir.
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {

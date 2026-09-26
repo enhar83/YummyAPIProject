@@ -11,15 +11,20 @@ namespace Yummy.Core.Services
 {
     public interface IReservationService
     {
+        // kullanıcı işlemleri (ReservationsController). kullanıcı sadece kendi rezervasyonlarını görebilir/değiştirebilir.
         Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId, CancellationToken cancellationToken = default);
         Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
         Task UpdateReservationAsync(string userId, ReservationUpdateDto dto, CancellationToken cancellationToken = default);
         Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
+
+        // admin işlemleri (AdminReservationsController). tüm liste büyüyebileceği için sayfalı döner.
         Task<PagedResultDto<ReservationListDto>> GetAllReservationsAsync(PaginationQueryDto query, CancellationToken cancellationToken = default);
         Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId, CancellationToken cancellationToken = default);
         Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default);
+
+        // giriş gerektirmeyen sorgular: kişi sayısına uygun boş masalar ve masa haritası için doluluk durumu.
         Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default);
 

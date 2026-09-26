@@ -36,6 +36,7 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             return Ok(table);
         }
 
+        // IsActive gönderilmezse masa aktif oluşturulur. aynı masa numarasıyla ikinci bir masa eklenemez.
         [HttpPost]
         public async Task<IActionResult> Add(DiningTableCreateDto dto)
         {
@@ -43,6 +44,8 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             return StatusCode(201, "Masa başarıyla eklendi.");
         }
 
+        // masayı pasife almak için IsActive = false gönderilir. bekleyen/onaylı rezervasyonu olan masa pasife alınamaz,
+        // kapasitesi de bu rezervasyonların kişi sayısının altına düşürülemez.
         [HttpPut]
         public async Task<IActionResult> Update(DiningTableUpdateDto dto)
         {

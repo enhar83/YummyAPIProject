@@ -14,13 +14,15 @@ using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Managers
 {
+    // masa yönetimi (sadece admin). masalar silinmez; kullanımdan kaldırılacak masa IsActive = false yapılarak pasife alınır.
+    // pasif masa yeni rezervasyonlarda ve harita/müsaitlik sorgularında listelenmez, fakat geçmiş rezervasyonlarda masa bilgisi görünmeye devam eder.
     public class DiningTableManager : IDiningTableService
     {
         private readonly IGenericRepository<DiningTable> _tableRepository;
-        private readonly IGenericRepository<Reservation> _reservationRepository;
+        private readonly IGenericRepository<Reservation> _reservationRepository; // pasife alma ve kapasite düşürme kontrolleri için masadaki rezervasyonlara bakılır.
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
-        private readonly TimeProvider _timeProvider;
+        private readonly TimeProvider _timeProvider; // "bugün" restoranın saat dilimine göre hesaplanır (bkz. RestaurantTimeProvider).
 
         public DiningTableManager(IGenericRepository<DiningTable> tableRepository, IGenericRepository<Reservation> reservationRepository, IUnitOfWork uow, IMapper mapper, TimeProvider timeProvider)
         {
@@ -33,6 +35,7 @@ namespace Yummy.Business.Managers
 
         public async Task AddAsync(DiningTableCreateDto dto, CancellationToken cancellationToken = default)
         {
+            // baştaki/sondaki boşluklar atılır; " Masa 1 " ile "Masa 1" aynı masa numarası sayılır.
             dto.TableNo = dto.TableNo.Trim();
             await EnsureTableNoIsUniqueAsync(dto.TableNo, null, cancellationToken);
 
@@ -41,6 +44,7 @@ namespace Yummy.Business.Managers
             await _uow.SaveAsync(cancellationToken);
         }
 
+        // admin için aktif ve pasif tüm masalar döner (IsActive alanı ile ayırt edilir).
         public async Task<IEnumerable<DiningTableListDto>> GetAllAsync(CancellationToken cancellationToken = default)
         {
             var tables = await _tableRepository.GetAllAsync(cancellationToken);
@@ -62,6 +66,7 @@ namespace Yummy.Business.Managers
             if (table == null)
                 throw new LogicException("NotFound", "Güncellenecek masa bulunamadı.");
 
+            // masa kendi numarasını koruyabilir; sadece başka bir masanın numarası verilemez.
             dto.TableNo = dto.TableNo.Trim();
             await EnsureTableNoIsUniqueAsync(dto.TableNo, table.DiningTableId, cancellationToken);
 

@@ -37,6 +37,7 @@
     <None Update="Templates\EmailResetPasswordTemplate.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- rezervasyon e-posta şablonları uygulama klasörüne kopyalanır; ReservationManager şablonları AppContext.BaseDirectory altından okur. -->
     <None Update="Templates\Reservation*.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -7,6 +7,8 @@ namespace Yummy.Data.Migrations
     /// <inheritdoc />
     public partial class AddUniqueTableNoToDiningTable : Migration
     {
+        // TableNo kolonu nvarchar(max)'tan nvarchar(50)'ye çekilir (index eklenebilmesi için gerekli) ve benzersiz index eklenir.
+        // uygulanmadan önce veritabanında tekrar eden veya 50 karakteri aşan masa numarası olmadığı kontrol edilmiştir.
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {

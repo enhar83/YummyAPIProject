@@ -30,6 +30,8 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             return Ok(reservations);
         }
 
+        // durum kuralları: aynı duruma geçilemez, tamamlanmış rezervasyon değiştirilemez, Completed elle atanamaz (validator).
+        // iptal edilmiş rezervasyon tekrar aktif edilirken masanın hâlâ aktif ve o saatte boş olduğu kontrol edilir. her değişiklikte müşteriye e-posta gider.
         [HttpPut("update-status")]
         public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationDto dto)
         {
@@ -44,6 +46,7 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             return Ok(reservation);
         }
 
+        // restoranın saat dilimine göre bugünün tüm rezervasyonları, saate göre sıralı.
         [HttpGet("todays-reservations")]
         public async Task<IActionResult> GetTodaysReservations()
         {

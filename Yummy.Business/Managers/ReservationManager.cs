@@ -50,6 +50,11 @@ namespace Yummy.Business.Managers
             _timeProvider = timeProvider;
         }
 
+        // rezervasyon oluşturma akışı:
+        // 1) tarih/saat doğrulanır (HH:mm, bitiş > başlangıç, geçmiş saat olamaz).
+        // 2) kullanıcı + gün kilidi alınır; kullanıcının aktif rezervasyon sayısı (en fazla 3) kontrol edilir.
+        // 3) seçilen masa ya da kişi sayısına yeten en küçük boş masa atanır ve kayıt Pending olarak eklenir.
+        // 4) kilit bırakıldıktan sonra "talebiniz alındı" e-postası gönderilir (hata olursa sadece loglanır).
         public async Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default)
         {
             var reservation = _mapper.Map<Reservation>(dto);
@@ -109,6 +114,8 @@ namespace Yummy.Business.Managers
             });
         }
 
+        // kullanıcının kendi rezervasyonunu iptal etmesi. sahiplik kilitten önce, durum ve süre kontrolleri kilit içinde güncel kayıt üzerinde yapılır.
+        // iptal edilmiş/tamamlanmış rezervasyon ve saatine 2 saatten az kalan rezervasyon iptal edilemez.
         public async Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
@@ -158,6 +165,7 @@ namespace Yummy.Business.Managers
             });
         }
 
+        // giriş gerektirmez. kişi sayısına yeten, aktif ve verilen saat aralığında boş masaları döner. sadece okuma yaptığı için kilit almaz.
         public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default)
         {
             var targetDate = dto.ReservationDate.Date;
@@ -178,6 +186,7 @@ namespace Yummy.Business.Managers
             };
         }
 
+        // admin listesi. sayfalı döner; COUNT ve sayfa sorgusu veritabanında çalışır, tüm tablo belleğe alınmaz.
         public async Task<PagedResultDto<ReservationListDto>> GetAllReservationsAsync(PaginationQueryDto query, CancellationToken cancellationToken = default)
         {
             // en yeni tarihli rezervasyonlar önce gelir; aynı gün ve saatte birden fazla kayıt varsa sayfalar arasında kayma olmaması için id ile sabitlenir.
@@ -226,6 +235,7 @@ namespace Yummy.Business.Managers
             return reservation ?? throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
         }
 
+        // kullanıcının tüm rezervasyonları. masa pasife alınmış olsa bile masa bilgisiyle birlikte listelenir.
         public async Task<IEnumerable<PastReservationByUserDto>> SeeMyPastReservationsAsync(string userId, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
@@ -238,6 +248,11 @@ namespace Yummy.Business.Managers
             return _mapper.Map<IEnumerable<PastReservationByUserDto>>(sortedEntities);
         }
 
+        // kullanıcının kendi rezervasyonunu güncellemesi:
+        // 1) rezervasyon okunur; eski ve yeni günün kilitleri tarih sırasıyla alınır ve kayıt kilit içinde yeniden okunur.
+        // 2) iptal/tamamlanmış, geçmiş veya saatine 2 saatten az kalan rezervasyon güncellenemez; hiçbir alan değişmediyse NoChanges döner.
+        // 3) tarih/saat/kişi sayısı değiştiyse yeni aralıkta masa aranır (mevcut masa uygunsa korunur).
+        // 4) onaylı rezervasyon tekrar Pending olur; kayıt sonrası "güncellendi" e-postası gönderilir.
         public async Task UpdateReservationAsync(string userId, ReservationUpdateDto dto, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
@@ -324,6 +339,9 @@ namespace Yummy.Business.Managers
             });
         }
 
+        // admin'in durum değiştirmesi. kayıt gün kilidi içinde yeniden okunur ve kurallar güncel durum üzerinden uygulanır:
+        // aynı duruma geçilemez, tamamlanmış rezervasyon değiştirilemez, iptal edilmiş rezervasyon ancak başlangıç saati geçmemişse,
+        // masası aktifse ve o saatte masa başka bir rezervasyona verilmemişse tekrar aktif edilebilir. sonrasında müşteriye durum e-postası gönderilir.
         public async Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default)
         {
             var snapshot = await _reservationRepository.GetSingleAsync(r => r.ReservationId == dto.ReservationId, cancellationToken)
@@ -382,6 +400,9 @@ namespace Yummy.Business.Managers
             }
         }
 
+        // arka plan servisi (ReservationStatusWorker) tarafından 10 dakikada bir çağrılır.
+        // bitiş saati geçen Approved rezervasyonlar Completed, Pending olanlar Cancelled yapılır; her gün kendi kilidi altında güncel veriyle işlenir.
+        // onaylanmadan süresi dolan rezervasyonların sahiplerine iptal e-postası gönderilir.
         public async Task<int> ProcessPastReservationsAsync(CancellationToken cancellationToken = default)
         {
             var now = _timeProvider.GetLocalDateTime();
@@ -439,6 +460,7 @@ namespace Yummy.Business.Managers
             return processedCount;
         }
 
+        // giriş gerektirmez. tüm aktif masaları, verilen saat aralığında dolu olup olmadıklarıyla birlikte döner (kapasiteden bağımsız).
         public async Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default)
         {
             var targetDate = date.Date;

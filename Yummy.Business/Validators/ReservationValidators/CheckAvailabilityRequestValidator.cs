@@ -17,6 +17,7 @@ namespace Yummy.Business.Validators.ReservationValidators
         {
             RuleFor(x => x.ReservationDate)
             .NotEmpty().WithMessage("Tarih seçimi zorunludur.")
+            // .Date ile karşılaştırılır: istemci saat kısmı gönderse bile (örn. 2026-10-26T19:00) son geçerli gün reddedilmez.
             .Must(date => date.Date >= timeProvider.GetLocalToday()).WithMessage("Geçmiş bir tarih için uygunluk kontrolü yapılamaz.")
             .Must(date => date.Date <= timeProvider.GetLocalToday().AddMonths(1)).WithMessage("En fazla 1 ay sonrasına uygunluk kontrolü yapabilirsiniz.");
 

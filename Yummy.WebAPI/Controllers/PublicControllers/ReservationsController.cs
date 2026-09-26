@@ -22,6 +22,8 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             _reservationService = reservationService;
         }
 
+        // e-posta gönderen işlemler (oluşturma/iptal/güncelleme) kullanıcı başına 15 dakikada 10 istekle sınırlıdır (RateLimitPolicies.Reservation).
+        // kurallar: kullanıcı başına en fazla 3 aktif rezervasyon, geçmiş saate rezervasyon yapılamaz, masa müsaitliği kilit altında kontrol edilir.
         [HttpPost("make-reservation")]
         [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> CreateReservation([FromBody] ReservationCreateDto dto)
@@ -38,6 +40,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             });
         }
 
+        // kullanıcının tüm rezervasyonları (pasife alınmış masalardakiler dahil), en yeni tarih ve saat önce.
         [HttpGet("see-my-reservations")]
         public async Task<IActionResult> SeeMyPastReservations()
         {
@@ -49,6 +52,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(reservations);
         }
 
+        // rezervasyon saatine 2 saatten az kaldıysa veya rezervasyon tamamlanmış/iptal edilmişse iptal edilemez.
         [HttpPut("cancel/{id}")]
         [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> CancelReservation(Guid id)
@@ -71,6 +75,8 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(reservation);
         }
 
+        // hiçbir alan değişmediyse NoChanges döner. onaylı rezervasyon değiştirilirse tekrar onaya (Pending) düşer.
+        // mevcut masa yeni saatte hâlâ uygunsa korunur, değilse en küçük uygun masa atanır.
         [HttpPut("update-reservation")]
         [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> UpdateReservation([FromBody] ReservationUpdateDto dto)
@@ -91,6 +97,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(result);
         }
 
+        // masa haritası: aktif masaların verilen saat aralığındaki doluluk durumu. saatler HH:mm formatında olmalı, bitiş başlangıçtan sonra olmalıdır.
         [HttpGet("map-status")]
         [AllowAnonymous]
         public async Task<IActionResult> GetMapStatus([FromQuery] DateTime date, [FromQuery] string time, [FromQuery] string endTime)

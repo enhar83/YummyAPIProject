@@ -3,6 +3,7 @@ using Yummy.Core.DTOs.CommonDTOs;
 
 namespace Yummy.Business.Validators.CommonValidators
 {
+    // tüm sayfalı listeleme endpoint'lerinde ortak kullanılır. çok büyük pageSize ile tek istekte tüm tablonun çekilmesi engellenir.
     public class PaginationQueryValidator : AbstractValidator<PaginationQueryDto>
     {
         public PaginationQueryValidator()
