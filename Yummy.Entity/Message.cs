@@ -1,13 +1,8 @@
-using System.Threading;
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 
 namespace Yummy.Entity
 {
-    public class Message
+    public class Message : BaseEntity
     {
         public Guid MessageId { get; set; }
         public string Name { get; set; } = null!;
@@ -15,9 +10,11 @@ namespace Yummy.Entity
         public string Email { get; set; } = null!;
         public string Subject { get; set; } = null!;
         public string MessageDetails { get; set; } = null!;
-        public DateTime SendDate { get; set; } = DateTime.Now;
+        public DateTime SendDate { get; set; } = DateTime.UtcNow;
         public bool IsRead { get; set; }
-        public Guid AppUserId { get; set; }
-        public AppUser AppUser { get; set; } = null!;
+
+        // nullable: anonim kullanıcıların da mesaj gönderebilmesi için.
+        public Guid? AppUserId { get; set; }
+        public AppUser? AppUser { get; set; }
     }
 }

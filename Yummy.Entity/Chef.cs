@@ -1,13 +1,9 @@
-using System.Threading;
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Yummy.Entity
 {
-    public class Chef
+    public class Chef : BaseEntity
     {
         public Guid ChefId { get; set; }
         public string Name { get; set; } = null!;

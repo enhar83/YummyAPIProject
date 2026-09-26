@@ -1,13 +1,9 @@
-using System.Threading;
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Yummy.Entity
 {
-    public class Category
+    public class Category : BaseEntity
     {
         public Guid CategoryId { get; set; }
         public string CategoryName { get; set; } = null!;

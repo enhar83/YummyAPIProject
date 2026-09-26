@@ -1,13 +1,8 @@
-using System.Threading;
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 
 namespace Yummy.Entity
 {
-    public class Contact
+    public class Contact : BaseEntity
     {
         public Guid ContactId { get; set; }
         public string MapLocation { get; set; } = null!;

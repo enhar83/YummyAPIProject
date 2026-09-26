@@ -1,13 +1,8 @@
-using System.Threading;
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 
 namespace Yummy.Entity
 {
-    public class Service
+    public class Service : BaseEntity
     {
         public Guid ServiceId { get; set; }
         public string Title { get; set; } = null!;
