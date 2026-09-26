@@ -8,6 +8,8 @@ using Yummy.Core.Constants;
 
 namespace Yummy.WebAPI.Controllers.AdminControllers
 {
+    // masalar sistemden silinmez; kullanımdan kaldırılmak istenen masa Update ile IsActive = false yapılarak pasife alınır.
+    // böylece geçmiş rezervasyonların masa bilgisi korunur.
     [Authorize(Roles = RoleNames.Admin)]
     [Route("api/admin/dining-tables")]
     [ApiController]
@@ -46,13 +48,6 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         {
             await _tableService.UpdateAsync(dto);
             return Ok("Masa başarıyla güncellendi.");
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(Guid id)
-        {
-            await _tableService.DeleteAsync(id);
-            return Ok("Masa başarıyla silindi.");
         }
     }
 }

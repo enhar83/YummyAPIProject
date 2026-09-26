@@ -51,44 +51,30 @@ namespace Yummy.Business.Managers
             var newReservationDateTime = targetDate.Add(reqStart);
             if (newReservationDateTime < DateTime.Now)
                 throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon yapılamaz.");
-            
-            var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
-                           (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
 
-            var tables = await _tableRepository.GetWhereAsync(t => t.IsActive && t.Capacity >= dto.NumberOfGuests, cancellationToken);
-            var availableTables = tables.OrderBy(t => t.Capacity).ToList();
-            
-            foreach(var res in activeReservations)
+            DiningTable selectedTable = null!;
+
+            // müsaitlik kontrolü ile kayıt aynı kilit altında yapılır; aksi halde eşzamanlı iki istek aynı masayı boş görüp ikisi de kaydedebilir.
+            await _uow.ExecuteInLockedTransactionAsync(GetDateLockKey(targetDate), async () =>
             {
-                if (TimeSpan.TryParse(res.ReservationTime, out TimeSpan resStart) && TimeSpan.TryParse(res.ReservationEndTime, out TimeSpan resEnd))
+                var availableTables = await GetAvailableTablesAsync(targetDate, reqStart, reqEnd, dto.NumberOfGuests, null, cancellationToken);
+
+                if (dto.SelectedTableId.HasValue)
                 {
-                    if ((reqStart >= resStart && reqStart < resEnd) || (reqEnd > resStart && reqEnd <= resEnd) || (reqStart <= resStart && reqEnd >= resEnd))
-                    {
-                        var tableToRemove = availableTables.FirstOrDefault(t => t.DiningTableId == res.DiningTableId);
-                        if (tableToRemove != null)
-                            availableTables.Remove(tableToRemove);
-                    }
+                    selectedTable = availableTables.FirstOrDefault(t => t.DiningTableId == dto.SelectedTableId.Value)
+                        ?? throw new LogicException("TableNotAvailable", "Seçtiğiniz masa istenilen saat aralığında uygun değil veya kapasitesi yetersiz.");
                 }
-            }
-            
-            DiningTable? selectedTable = null;
-            if (dto.SelectedTableId.HasValue)
-            {
-                selectedTable = availableTables.FirstOrDefault(t => t.DiningTableId == dto.SelectedTableId.Value);
-                if (selectedTable == null)
-                    throw new LogicException("TableNotAvailable", "Seçtiğiniz masa istenilen saat aralığında uygun değil veya kapasitesi yetersiz.");
-            }
-            else
-            {
-                selectedTable = availableTables.FirstOrDefault();
-                if (selectedTable == null)
-                    throw new LogicException("NoTable", "Seçtiğiniz tarih ve saat aralığında kişi sayınıza uygun boş masamız bulunmamaktadır.");
-            }
-                
-            reservation.DiningTableId = selectedTable.DiningTableId;
+                else
+                {
+                    selectedTable = availableTables.FirstOrDefault()
+                        ?? throw new LogicException("NoTable", "Seçtiğiniz tarih ve saat aralığında kişi sayınıza uygun boş masamız bulunmamaktadır.");
+                }
 
-            await _reservationRepository.AddAsync(reservation, cancellationToken);
-            await _uow.SaveAsync(cancellationToken);
+                reservation.DiningTableId = selectedTable.DiningTableId;
+
+                await _reservationRepository.AddAsync(reservation, cancellationToken);
+                await _uow.SaveAsync(cancellationToken);
+            }, cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationReceivedTemplate.html");
             if (!File.Exists(templatePath))
@@ -154,25 +140,8 @@ namespace Yummy.Business.Managers
             
             if (!TimeSpan.TryParse(dto.ReservationTime, out TimeSpan reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out TimeSpan reqEnd))
                 throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
-                
-            var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
-                           (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
 
-            var tables = await _tableRepository.GetWhereAsync(t => t.IsActive && t.Capacity >= dto.NumberOfGuests, cancellationToken);
-            var availableTables = tables.OrderBy(t => t.Capacity).ToList();
-            
-            foreach(var res in activeReservations)
-            {
-                if (TimeSpan.TryParse(res.ReservationTime, out TimeSpan resStart) && TimeSpan.TryParse(res.ReservationEndTime, out TimeSpan resEnd))
-                {
-                    if ((reqStart >= resStart && reqStart < resEnd) || (reqEnd > resStart && reqEnd <= resEnd) || (reqStart <= resStart && reqEnd >= resEnd))
-                    {
-                        var tableToRemove = availableTables.FirstOrDefault(t => t.DiningTableId == res.DiningTableId);
-                        if (tableToRemove != null)
-                            availableTables.Remove(tableToRemove);
-                    }
-                }
-            }
+            var availableTables = await GetAvailableTablesAsync(targetDate, reqStart, reqEnd, dto.NumberOfGuests, null, cancellationToken);
 
             var response = new CheckAvailabilityResponseDto
             {
@@ -256,55 +225,47 @@ namespace Yummy.Business.Managers
 
             string incomingMessage = dto.Message ?? string.Empty;
 
-            if (reservation.ReservationDate.Date != dto.ReservationDate.Date ||
+            var targetDate = dto.ReservationDate.Date;
+            TimeSpan reqStart = default, reqEnd = default;
+
+            bool isSlotChanged = reservation.ReservationDate.Date != dto.ReservationDate.Date ||
                 reservation.ReservationTime != dto.ReservationTime ||
                 reservation.ReservationEndTime != dto.ReservationEndTime ||
-                reservation.NumberOfGuests != dto.NumberOfGuests)
+                reservation.NumberOfGuests != dto.NumberOfGuests;
+
+            if (isSlotChanged)
             {
-                var targetDate = dto.ReservationDate.Date;
-                if (!TimeSpan.TryParse(dto.ReservationTime, out TimeSpan reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out TimeSpan reqEnd))
+                if (!TimeSpan.TryParse(dto.ReservationTime, out reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out reqEnd))
                     throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
-                    
+
                 var newReservationDateTime = targetDate.Add(reqStart);
                 if (newReservationDateTime < DateTime.Now)
                     throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon güncellenemez.");
-                    
-                var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate && r.ReservationId != reservation.ReservationId &&
-                               (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
-
-                var tables = await _tableRepository.GetWhereAsync(t => t.IsActive && t.Capacity >= dto.NumberOfGuests, cancellationToken);
-                var availableTables = tables.OrderBy(t => t.Capacity).ToList();
-                
-                foreach(var res in activeReservations)
-                {
-                    if (TimeSpan.TryParse(res.ReservationTime, out TimeSpan resStart) && TimeSpan.TryParse(res.ReservationEndTime, out TimeSpan resEnd))
-                    {
-                        if ((reqStart >= resStart && reqStart < resEnd) || (reqEnd > resStart && reqEnd <= resEnd) || (reqStart <= resStart && reqEnd >= resEnd))
-                        {
-                            var tableToRemove = availableTables.FirstOrDefault(t => t.DiningTableId == res.DiningTableId);
-                            if (tableToRemove != null)
-                                availableTables.Remove(tableToRemove);
-                        }
-                    }
-                }
-                
-                var selectedTable = availableTables.FirstOrDefault();
-                if (selectedTable == null)
-                    throw new LogicException("NoTable", "Seçtiğiniz yeni tarih ve saat aralığında kişi sayınıza uygun boş masamız bulunmamaktadır.");
-                    
-                reservation.DiningTableId = selectedTable.DiningTableId;
-                isChanged = true;
             }
 
-            if (reservation.Message != incomingMessage)
-                isChanged = true;
+            await _uow.ExecuteInLockedTransactionAsync(GetDateLockKey(targetDate), async () =>
+            {
+                if (isSlotChanged)
+                {
+                    var availableTables = await GetAvailableTablesAsync(targetDate, reqStart, reqEnd, dto.NumberOfGuests, reservation.ReservationId, cancellationToken);
 
-            if (isChanged && reservation.ReservationStatus == ReservationStatus.Approved)
-                reservation.ReservationStatus = ReservationStatus.Pending;
-            _mapper.Map(dto, reservation);
+                    var selectedTable = availableTables.FirstOrDefault()
+                        ?? throw new LogicException("NoTable", "Seçtiğiniz yeni tarih ve saat aralığında kişi sayınıza uygun boş masamız bulunmamaktadır.");
 
-            _reservationRepository.Update(reservation);
-            await _uow.SaveAsync(cancellationToken);
+                    reservation.DiningTableId = selectedTable.DiningTableId;
+                    isChanged = true;
+                }
+
+                if (reservation.Message != incomingMessage)
+                    isChanged = true;
+
+                if (isChanged && reservation.ReservationStatus == ReservationStatus.Approved)
+                    reservation.ReservationStatus = ReservationStatus.Pending;
+                _mapper.Map(dto, reservation);
+
+                _reservationRepository.Update(reservation);
+                await _uow.SaveAsync(cancellationToken);
+            }, cancellationToken);
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationUpdatedTemplate.html");
 
@@ -334,9 +295,47 @@ namespace Yummy.Business.Managers
             if (reservation == null)
                 throw new LogicException("NotFound", "Rezervasyon bulunamadı.");
 
-            reservation.ReservationStatus = dto.ReservationStatus;
-            _reservationRepository.Update(reservation);
-            await _uow.SaveAsync(cancellationToken);
+            if (reservation.ReservationStatus == dto.ReservationStatus)
+                throw new LogicException("SameStatus", "Rezervasyon zaten bu durumda.");
+
+            if (reservation.ReservationStatus == ReservationStatus.Completed)
+                throw new LogicException("NotAllowed", "Tamamlanmış rezervasyonların durumu değiştirilemez.");
+
+            // iptal edilmiş bir rezervasyon tekrar aktif edilirken masası bu arada başka bir rezervasyona verilmiş olabilir.
+            // bu nedenle masanın hâlâ uygun olduğu, kayıt ile aynı kilit altında tekrar kontrol edilir.
+            bool isReactivating = reservation.ReservationStatus == ReservationStatus.Cancelled &&
+                (dto.ReservationStatus == ReservationStatus.Pending || dto.ReservationStatus == ReservationStatus.Approved);
+
+            if (isReactivating)
+            {
+                if (!TimeSpan.TryParse(reservation.ReservationTime, out TimeSpan resStart) || !TimeSpan.TryParse(reservation.ReservationEndTime, out TimeSpan resEnd))
+                    throw new LogicException("InvalidTime", "Rezervasyonun saat bilgisi geçersiz.");
+
+                var targetDate = reservation.ReservationDate.Date;
+                if (targetDate.Add(resStart) < DateTime.Now)
+                    throw new LogicException("PastReservation", "Başlangıç saati geçmiş bir rezervasyon tekrar aktif edilemez.");
+
+                await _uow.ExecuteInLockedTransactionAsync(GetDateLockKey(targetDate), async () =>
+                {
+                    var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
+                    if (table == null || !table.IsActive)
+                        throw new LogicException("TableNotAvailable", "Rezervasyonun masası artık kullanımda değil. Kullanıcının yeni bir rezervasyon oluşturması gerekir.");
+
+                    var busyTableIds = await GetBusyTableIdsAsync(targetDate, resStart, resEnd, reservation.ReservationId, cancellationToken);
+                    if (busyTableIds.Contains(reservation.DiningTableId))
+                        throw new LogicException("TableNotAvailable", "Rezervasyonun masası bu saat aralığında başka bir rezervasyona ayrılmış. Kullanıcının yeni bir rezervasyon oluşturması gerekir.");
+
+                    reservation.ReservationStatus = dto.ReservationStatus;
+                    _reservationRepository.Update(reservation);
+                    await _uow.SaveAsync(cancellationToken);
+                }, cancellationToken);
+            }
+            else
+            {
+                reservation.ReservationStatus = dto.ReservationStatus;
+                _reservationRepository.Update(reservation);
+                await _uow.SaveAsync(cancellationToken);
+            }
 
             var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationStatusTemplate.html");
             if (!File.Exists(templatePath))
@@ -391,45 +390,58 @@ namespace Yummy.Business.Managers
         public async Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default)
         {
             var targetDate = date.Date;
-            
+
             if (!TimeSpan.TryParse(time, out TimeSpan reqStart) || !TimeSpan.TryParse(endTime, out TimeSpan reqEnd))
                 throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
-                
-            var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate &&
+
+            var busyTableIds = await GetBusyTableIdsAsync(targetDate, reqStart, reqEnd, null, cancellationToken);
+            var tables = await _tableRepository.GetWhereAsync(t => t.IsActive, cancellationToken);
+
+            return tables.Select(table => new TableStatusForMapDto
+            {
+                DiningTableId = table.DiningTableId,
+                TableNo = table.TableNo,
+                Capacity = table.Capacity,
+                Location = table.Location,
+                IsAvailable = !busyTableIds.Contains(table.DiningTableId)
+            }).ToList();
+        }
+
+        // aynı güne ait rezervasyon yazma işlemleri bu anahtar ile kilitlenir. farklı günlerin istekleri birbirini beklemez.
+        private static string GetDateLockKey(DateTime date) => $"reservation:{date:yyyy-MM-dd}";
+
+        // iki saat aralığı, biri diğeri bitmeden başlıyorsa çakışır. uç uca eklenen aralıklar (19:00-21:00 ve 21:00-22:00) çakışmaz.
+        private static bool IsOverlapping(TimeSpan startA, TimeSpan endA, TimeSpan startB, TimeSpan endB) =>
+            startA < endB && endA > startB;
+
+        // verilen gün ve saat aralığında aktif (Pending/Approved) bir rezervasyonu bulunan masaların id'lerini döner.
+        // excludeReservationId: güncellenen rezervasyonun kendi masasını dolu saymaması için hariç tutulur.
+        private async Task<HashSet<Guid>> GetBusyTableIdsAsync(DateTime date, TimeSpan start, TimeSpan end, Guid? excludeReservationId, CancellationToken cancellationToken)
+        {
+            var targetDate = date.Date;
+            var excludedId = excludeReservationId ?? Guid.Empty;
+
+            var activeReservations = await _reservationRepository.GetWhereAsync(r => r.ReservationDate.Date == targetDate && r.ReservationId != excludedId &&
                            (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
 
-            var tables = await _tableRepository.GetWhereAsync(t => t.IsActive, cancellationToken);
-            
-            var statuses = new List<TableStatusForMapDto>();
-            
-            foreach (var table in tables)
-            {
-                bool isAvailable = true;
-                
-                var tableReservations = activeReservations.Where(r => r.DiningTableId == table.DiningTableId);
-                foreach (var res in tableReservations)
-                {
-                    if (TimeSpan.TryParse(res.ReservationTime, out TimeSpan resStart) && TimeSpan.TryParse(res.ReservationEndTime, out TimeSpan resEnd))
-                    {
-                        if ((reqStart >= resStart && reqStart < resEnd) || (reqEnd > resStart && reqEnd <= resEnd) || (reqStart <= resStart && reqEnd >= resEnd))
-                        {
-                            isAvailable = false;
-                            break;
-                        }
-                    }
-                }
-                
-                statuses.Add(new TableStatusForMapDto
-                {
-                    DiningTableId = table.DiningTableId,
-                    TableNo = table.TableNo,
-                    Capacity = table.Capacity,
-                    Location = table.Location,
-                    IsAvailable = isAvailable
-                });
-            }
-            
-            return statuses;
+            return activeReservations
+                .Where(r => TimeSpan.TryParse(r.ReservationTime, out TimeSpan resStart) &&
+                            TimeSpan.TryParse(r.ReservationEndTime, out TimeSpan resEnd) &&
+                            IsOverlapping(start, end, resStart, resEnd))
+                .Select(r => r.DiningTableId)
+                .ToHashSet();
+        }
+
+        // kişi sayısına yeten, aktif ve verilen saat aralığında boş olan masaları kapasiteye göre küçükten büyüğe sıralı döner.
+        private async Task<List<DiningTable>> GetAvailableTablesAsync(DateTime date, TimeSpan start, TimeSpan end, int numberOfGuests, Guid? excludeReservationId, CancellationToken cancellationToken)
+        {
+            var busyTableIds = await GetBusyTableIdsAsync(date, start, end, excludeReservationId, cancellationToken);
+            var tables = await _tableRepository.GetWhereAsync(t => t.IsActive && t.Capacity >= numberOfGuests, cancellationToken);
+
+            return tables
+                .Where(t => !busyTableIds.Contains(t.DiningTableId))
+                .OrderBy(t => t.Capacity)
+                .ToList();
         }
     }
 }

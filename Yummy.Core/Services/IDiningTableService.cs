@@ -12,6 +12,5 @@ namespace Yummy.Core.Services
         Task<DiningTableListDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
         Task AddAsync(DiningTableCreateDto dto, CancellationToken cancellationToken = default);
         Task UpdateAsync(DiningTableUpdateDto dto, CancellationToken cancellationToken = default);
-        Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
     }
 }
