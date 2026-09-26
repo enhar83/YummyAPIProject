@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -42,6 +45,27 @@ namespace Yummy.Data.Context
             // Configurations/ klasöründeki tüm IEntityTypeConfiguration<T> sınıflarını otomatik olarak uygular.
             // Yeni bir entity eklendiğinde sadece ilgili Configuration sınıfı yazılır; bu metoda dokunulmaz.
             builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+            #region Global Query Filters (Soft Delete)
+            // BaseEntity türevlerine reflection+expression ile otomatik WHERE IsDeleted = 0 filtresi eklenir.
+            // Bu sayede soft-delete edilmiş kayıtlar hiçbir sorguda görünmez.
+            // Önemli: FindAsync() bu filtreyi bypass eder; GenericRepository.GetByIdAsync() içinde ayrıca kontrol yapılır.
+            foreach (var entityType in builder.Model.GetEntityTypes())
+            {
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    var parameter = Expression.Parameter(entityType.ClrType, "e");
+                    var property  = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
+                    var filter    = Expression.Lambda(Expression.Equal(property, Expression.Constant(false)), parameter);
+                    builder.Entity(entityType.ClrType).HasQueryFilter(filter);
+                }
+            }
+
+            // AppUser ve AppRole BaseEntity'den türemediği için yukarıdaki döngü onları kapsamaz.
+            // Soft delete desteği için ayrıca tanımlanır.
+            builder.Entity<AppUser>().HasQueryFilter(u => !u.IsDeleted);
+            builder.Entity<AppRole>().HasQueryFilter(r => !r.IsDeleted);
+            #endregion
         }
     }
 }

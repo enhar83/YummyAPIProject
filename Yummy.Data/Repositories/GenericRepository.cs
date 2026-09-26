@@ -50,8 +50,20 @@ namespace Yummy.Data.Repositories
         }
 
         // FindAsync: önce Change Tracker'a bakar, yoksa DB'ye gider. ID bazlı tekil sorgu için en verimli yöntemdir.
-        public async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-            await _dbSet.FindAsync(new object[] { id }, cancellationToken);
+        // ⚠️ FindAsync, Global Query Filter'ı bypass eder. Bu nedenle BaseEntity türevleri için IsDeleted manuel kontrol edilir.
+        public async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            var entity = await _dbSet.FindAsync(new object[] { id }, cancellationToken);
+
+            if (entity is BaseEntity baseEntity && baseEntity.IsDeleted)
+            {
+                // Soft-delete edilmiş kayıt bulundu; Change Tracker'dan çıkarılır ve null döndürülür.
+                _context.Entry(entity).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+                return null;
+            }
+
+            return entity;
+        }
 
         // FirstOrDefaultAsync: koşula uyan ilk kaydı döner. Include desteği vardır; navigation property gerektiğinde kullanılır.
         public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
