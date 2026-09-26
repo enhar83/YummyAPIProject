@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Yummy.Core.DTOs.CommonDTOs;
 using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Entity;
 using Yummy.Core.Exceptions;
@@ -47,7 +48,7 @@ namespace Yummy.Tests.DiningTables
 
             var mine = Assert.Single(await manager.SeeMyPastReservationsAsync(UserA.ToString()));
             Assert.Equal("Masa 1", mine.TableNo);
-            Assert.Single(await manager.GetAllReservationsAsync());
+            Assert.Single((await manager.GetAllReservationsAsync(new PaginationQueryDto())).Items);
             Assert.Equal("Masa 1", (await manager.GetUserReservationByIdAsync(UserA.ToString(), id)).TableNo);
             Assert.Equal("Masa 1", (await manager.GetReservationByIdAsync(id)).TableNo);
         }

@@ -4,7 +4,7 @@ namespace Yummy.Tests.Infrastructure
 {
     public class FakeEmailService : IEmailService
     {
-        public List<(string To, string Subject)> SentEmails { get; } = new();
+        public List<(string To, string Subject, string Body)> SentEmails { get; } = new();
 
         // true yapılırsa SMTP hatası taklit edilir.
         public bool ShouldFail { get; set; }
@@ -15,7 +15,7 @@ namespace Yummy.Tests.Infrastructure
                 throw new InvalidOperationException("SMTP sunucusuna bağlanılamadı.");
 
             lock (SentEmails)
-                SentEmails.Add((toEmail, subject));
+                SentEmails.Add((toEmail, subject, body));
 
             return Task.CompletedTask;
         }

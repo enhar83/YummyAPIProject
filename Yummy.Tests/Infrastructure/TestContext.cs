@@ -27,12 +27,6 @@ namespace Yummy.Tests.Infrastructure
         protected readonly FakeEmailService Email = new();
         protected readonly TestTimeProvider Clock = new(Now);
 
-        static TestContext()
-        {
-            // manager'lar e-posta şablonlarını Directory.GetCurrentDirectory()/Templates altından okur.
-            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
-        }
-
         protected abstract DbContextOptions<YummyDbContext> Options { get; }
 
         protected YummyDbContext CreateDbContext() => new(Options);
