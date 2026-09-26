@@ -1,5 +1,5 @@
 using System.Threading;
-﻿using AutoMapper;
+using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Yummy.Core.DTOs.CategoryDTOs;
 using Yummy.Core.Exceptions;
