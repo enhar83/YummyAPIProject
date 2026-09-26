@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Core.Exceptions;
+using Yummy.Core.Extensions;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
@@ -19,13 +20,15 @@ namespace Yummy.Business.Managers
         private readonly IGenericRepository<Reservation> _reservationRepository;
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
+        private readonly TimeProvider _timeProvider;
 
-        public DiningTableManager(IGenericRepository<DiningTable> tableRepository, IGenericRepository<Reservation> reservationRepository, IUnitOfWork uow, IMapper mapper)
+        public DiningTableManager(IGenericRepository<DiningTable> tableRepository, IGenericRepository<Reservation> reservationRepository, IUnitOfWork uow, IMapper mapper, TimeProvider timeProvider)
         {
             _tableRepository = tableRepository;
             _reservationRepository = reservationRepository;
             _uow = uow;
             _mapper = mapper;
+            _timeProvider = timeProvider;
         }
 
         public async Task AddAsync(DiningTableCreateDto dto, CancellationToken cancellationToken = default)
@@ -64,10 +67,12 @@ namespace Yummy.Business.Managers
 
             // bugün veya ileri tarihli aktif (Pending/Approved) rezervasyonu olan masa pasife alınamaz; aksi halde bu rezervasyonlar kullanılamayan bir masada kalır.
             // geçmiş, tamamlanmış veya iptal edilmiş rezervasyonlar engel değildir ve masa pasife alındıktan sonra da kullanıcıların listelerinde görünmeye devam eder.
+            var today = _timeProvider.GetLocalToday();
+
             if (table.IsActive && !dto.IsActive)
             {
                 var hasActiveReservations = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
-                    r.ReservationDate >= DateTime.Today &&
+                    r.ReservationDate >= today &&
                     (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved), cancellationToken);
 
                 if (hasActiveReservations)
@@ -78,7 +83,7 @@ namespace Yummy.Business.Managers
             if (dto.Capacity < table.Capacity)
             {
                 var hasLargerReservation = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
-                    r.ReservationDate >= DateTime.Today &&
+                    r.ReservationDate >= today &&
                     (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved) &&
                     r.NumberOfGuests > dto.Capacity, cancellationToken);
 

@@ -1,21 +1,19 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Yummy.Core.IRepositories;
-using Yummy.Core.IUnitOfWork;
-using Yummy.Entity;
-using Yummy.Entity.Enums;
+using Yummy.Core.Services;
 
 namespace Yummy.Business.BackgroundServices
 {
+    // bitiş saati geçen rezervasyonların durumlarını periyodik olarak günceller.
+    // iş kuralları ReservationManager.ProcessPastReservationsAsync içerisindedir; bu sınıf sadece zamanlama ve hata yönetiminden sorumludur.
     public class ReservationStatusWorker : BackgroundService
     {
+        private static readonly TimeSpan Interval = TimeSpan.FromMinutes(10);
+
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<ReservationStatusWorker> _logger;
 
@@ -29,59 +27,36 @@ namespace Yummy.Business.BackgroundServices
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Rezervasyon durum kontrol servisi tetiklendi: {time}", DateTimeOffset.Now);
-
                 try
                 {
+                    // BackgroundService singleton'dır; scoped servisler (DbContext, repository, manager) her çalışmada yeni bir scope içerisinden alınır.
                     await using (var scope = _serviceProvider.CreateAsyncScope())
                     {
-                        var reservationRepository = scope.ServiceProvider.GetRequiredService<IGenericRepository<Reservation>>();
-                        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                        var reservationService = scope.ServiceProvider.GetRequiredService<IReservationService>();
+                        var processedCount = await reservationService.ProcessPastReservationsAsync(stoppingToken);
 
-                        var activeReservations = await reservationRepository.GetWhereAsync(r => r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending, stoppingToken);
-
-                        bool hasChanges = false;
-
-                        foreach (var reservation in activeReservations)
-                        {
-                            if (TimeSpan.TryParse(reservation.ReservationEndTime, out TimeSpan parsedEndTime))
-                            {
-                                var thresholdTime = reservation.ReservationDate.Date.Add(parsedEndTime);
-
-                                if (DateTime.Now >= thresholdTime)
-                                {
-                                    if (reservation.ReservationStatus == ReservationStatus.Approved)
-                                    {
-                                        reservation.ReservationStatus = ReservationStatus.Completed;
-                                        reservationRepository.Update(reservation);
-                                        hasChanges = true;
-
-                                        _logger.LogInformation($"Rezervasyon ID: {reservation.ReservationId} 'Completed' olarak güncellendi.");
-                                    }
-                                    else if (reservation.ReservationStatus == ReservationStatus.Pending)
-                                    {
-                                        reservation.ReservationStatus = ReservationStatus.Cancelled;
-                                        reservationRepository.Update(reservation);
-                                        hasChanges = true;
-
-                                        _logger.LogInformation($"Rezervasyon ID: {reservation.ReservationId} süresi dolduğu için 'Cancelled' olarak güncellendi.");
-                                    }
-                                }
-                            }
-                        }
-
-                        if (hasChanges)
-                        {
-                            await uow.SaveAsync();
-                            _logger.LogInformation("Zamanı geçen rezervasyonların durumları veritabanına başarıyla kaydedildi.");
-                        }
+                        if (processedCount > 0)
+                            _logger.LogInformation("Zamanı geçen {Count} rezervasyonun durumu güncellendi.", processedCount);
                     }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    // uygulama kapanıyor; hata olarak loglanmaz.
+                    break;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Rezervasyon durum kontrol servisinde beklenmeyen bir hata oluştu.");
                 }
-                await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+
+                try
+                {
+                    await Task.Delay(Interval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
     }

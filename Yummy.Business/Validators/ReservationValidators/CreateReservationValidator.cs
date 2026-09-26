@@ -1,18 +1,20 @@
 using System.Threading;
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FluentValidation;
+using Yummy.Core.Extensions;
 using Yummy.Core.DTOs.ReservationDTOs;
 
 namespace Yummy.Business.Validators.ReservationValidators
 {
     public class CreateReservationValidator : AbstractValidator<ReservationCreateDto>
     {
-        public CreateReservationValidator()
+        // tarih kontrolleri sunucunun değil restoranın yerel saatine göre yapılır.
+        public CreateReservationValidator(TimeProvider timeProvider)
         {
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Ad alanı boş bırakılamaz.");
@@ -29,8 +31,8 @@ namespace Yummy.Business.Validators.ReservationValidators
 
             RuleFor(x => x.ReservationDate)
                 .NotEmpty().WithMessage("Rezervasyon tarihi boş bırakılamaz.")
-                .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Geçmiş bir tarihe rezervasyon yapılamaz.")
-                .Must(date => date.Date <= DateTime.Today.AddMonths(1)).WithMessage("En fazla 1 ay (30 gün) sonrasına rezervasyon yapabilirsiniz.");
+                .Must(date => date.Date >= timeProvider.GetLocalToday()).WithMessage("Geçmiş bir tarihe rezervasyon yapılamaz.")
+                .Must(date => date.Date <= timeProvider.GetLocalToday().AddMonths(1)).WithMessage("En fazla 1 ay (30 gün) sonrasına rezervasyon yapabilirsiniz.");
 
             RuleFor(x => x.ReservationTime)
                 .NotEmpty().WithMessage("Rezervasyon saati zorunludur.")

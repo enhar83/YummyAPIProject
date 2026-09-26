@@ -23,7 +23,10 @@ namespace Yummy.Data
             return await _context.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task ExecuteInLockedTransactionAsync(string lockKey, Func<Task> action, CancellationToken cancellationToken = default)
+        public Task ExecuteInLockedTransactionAsync(string lockKey, Func<Task> action, CancellationToken cancellationToken = default) =>
+            ExecuteInLockedTransactionAsync(new[] { lockKey }, action, cancellationToken);
+
+        public async Task ExecuteInLockedTransactionAsync(IReadOnlyList<string> lockKeys, Func<Task> action, CancellationToken cancellationToken = default)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
@@ -32,10 +35,13 @@ namespace Yummy.Data
             // SQL Server dışındaki provider'larda (örn. testlerdeki SQLite) yazma işlemleri zaten veritabanı seviyesinde sıralandığı için bu adım atlanır.
             if (_context.Database.IsSqlServer())
             {
-                await _context.Database.ExecuteSqlInterpolatedAsync($@"
-                    DECLARE @result int;
-                    EXEC @result = sp_getapplock @Resource = {lockKey}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000;
-                    IF @result < 0 THROW 50000, 'Kaynak kilidi alınamadı.', 1;", cancellationToken);
+                foreach (var lockKey in lockKeys)
+                {
+                    await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                        DECLARE @result int;
+                        EXEC @result = sp_getapplock @Resource = {lockKey}, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = 10000;
+                        IF @result < 0 THROW 50000, 'Kaynak kilidi alınamadı.', 1;", cancellationToken);
+                }
             }
 
             await action();

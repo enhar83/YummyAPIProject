@@ -13,5 +13,9 @@ namespace Yummy.Core.IUnitOfWork
         // action, lockKey için alınan özel (exclusive) bir kilit altında tek bir transaction içerisinde çalıştırılır.
         // aynı lockKey ile gelen eşzamanlı istekler sıraya girer; "kontrol et → kaydet" adımları arasına başka bir istek giremez.
         Task ExecuteInLockedTransactionAsync(string lockKey, Func<Task> action, CancellationToken cancellationToken = default);
+
+        // birden fazla kilit gerektiğinde kilitler verilen sırayla alınır. deadlock oluşmaması için tüm çağıranlar aynı sırayı kullanmalıdır
+        // (örn. rezervasyonlarda: önce kullanıcı, sonra gün kilidi).
+        Task ExecuteInLockedTransactionAsync(IReadOnlyList<string> lockKeys, Func<Task> action, CancellationToken cancellationToken = default);
     }
 }

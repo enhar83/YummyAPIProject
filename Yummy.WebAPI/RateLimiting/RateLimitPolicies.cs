@@ -8,5 +8,8 @@ namespace Yummy.WebAPI.RateLimiting
 
         // e-posta gönderen endpoint'ler (register, forgot-password, request-email-change): IP başına 15 dakikada 5 istek.
         public const string EmailSending = "email-sending";
+
+        // rezervasyon oluşturma/güncelleme/iptal (her biri e-posta gönderir): kullanıcı başına 15 dakikada 10 istek.
+        public const string Reservation = "reservation";
     }
 }

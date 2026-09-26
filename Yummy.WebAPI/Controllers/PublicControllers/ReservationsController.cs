@@ -2,10 +2,11 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Identity.Client;
+using Microsoft.AspNetCore.RateLimiting;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
+using Yummy.WebAPI.RateLimiting;
 
 namespace Yummy.WebAPI.Controllers.PublicControllers
 {
@@ -22,6 +23,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPost("make-reservation")]
+        [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> CreateReservation([FromBody] ReservationCreateDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -48,6 +50,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPut("cancel/{id}")]
+        [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> CancelReservation(Guid id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -69,6 +72,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPut("update-reservation")]
+        [EnableRateLimiting(RateLimitPolicies.Reservation)]
         public async Task<IActionResult> UpdateReservation([FromBody] ReservationUpdateDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

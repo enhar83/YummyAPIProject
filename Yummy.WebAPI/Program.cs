@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Yummy.Business.BackgroundServices;
+using Yummy.Business.Time;
 using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
@@ -84,6 +85,20 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("TokenSettings"));
+
+// rezervasyon tarih/saat kontrolleri sunucunun değil restoranın saat dilimine göre yapılır (sunucu UTC'de çalışsa bile).
+// geçersiz bir saat dilimi tanımlanmışsa uygulama açılışta anlaşılır bir hata ile durdurulur.
+var restaurantSettings = builder.Configuration.GetSection("RestaurantSettings").Get<RestaurantSettings>() ?? new RestaurantSettings();
+TimeZoneInfo restaurantTimeZone;
+try
+{
+    restaurantTimeZone = TimeZoneInfo.FindSystemTimeZoneById(restaurantSettings.TimeZoneId);
+}
+catch (TimeZoneNotFoundException)
+{
+    throw new InvalidOperationException($"'RestaurantSettings:TimeZoneId' için geçersiz saat dilimi: '{restaurantSettings.TimeZoneId}'. Örnek: 'Europe/Istanbul'.");
+}
+builder.Services.AddSingleton<TimeProvider>(new RestaurantTimeProvider(restaurantTimeZone));
 
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //open generic kullanımıdır. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluşur demektir.
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -216,6 +231,18 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // kullanıcı bazlı: giriş yapmış kullanıcının id'si, yoksa IP adresi partition anahtarı olarak kullanılır.
+    // kullanıcı bilgisi okunabildiği için bu middleware UseAuthentication'dan sonra çalıştırılır.
+    options.AddPolicy(RateLimitPolicies.Reservation, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0
+            }));
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
@@ -244,10 +271,12 @@ if (app.Environment.IsDevelopment())
 app.UseStaticFiles(); //IWebHostEnvironment'in çalışması için.
 app.UseHttpsRedirection();
 
-app.UseRateLimiter();
-
 app.UseAuthentication();
 app.UseAuthorization();
+
+// kullanıcı bazlı policy'lerin (örn. Reservation) kullanıcı kimliğini okuyabilmesi için authentication'dan sonra çalışır.
+// yetkisiz istekler (401/403) limitten düşülmez.
+app.UseRateLimiter();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.MapControllers();

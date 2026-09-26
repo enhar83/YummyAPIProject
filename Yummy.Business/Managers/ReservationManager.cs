@@ -1,16 +1,15 @@
 using System.Threading;
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Yummy.Core.DTOs.ProductDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
+using Yummy.Core.Extensions;
 using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
@@ -27,11 +26,16 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly ILogger<ReservationManager> _logger;
+        private readonly TimeProvider _timeProvider;
 
         // kullanıcı, rezervasyon saatine bu süreden az kaldığında rezervasyonunu iptal edemez veya güncelleyemez.
         private const int MinHoursBeforeChange = 2;
 
-        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService, ILogger<ReservationManager> logger)
+        // bir kullanıcının aynı anda sahip olabileceği bekleyen/onaylı (bugün veya ileri tarihli) rezervasyon sayısı.
+        // tek bir kullanıcının tüm masaları doldurmasını ve sistemin keyfi adreslere e-posta göndermek için kullanılmasını sınırlar.
+        public const int MaxActiveReservationsPerUser = 3;
+
+        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService, ILogger<ReservationManager> logger, TimeProvider timeProvider)
         {
             _reservationRepository = reservationRepository;
             _tableRepository = tableRepository;
@@ -39,6 +43,7 @@ namespace Yummy.Business.Managers
             _mapper = mapper;
             _emailService = emailService;
             _logger = logger;
+            _timeProvider = timeProvider;
         }
 
         public async Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default)
@@ -55,14 +60,23 @@ namespace Yummy.Business.Managers
                 throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
                 
             var newReservationDateTime = targetDate.Add(reqStart);
-            if (newReservationDateTime < DateTime.Now)
+            if (newReservationDateTime < _timeProvider.GetLocalDateTime())
                 throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon yapılamaz.");
+
 
             DiningTable selectedTable = null!;
 
-            // müsaitlik kontrolü ile kayıt aynı kilit altında yapılır; aksi halde eşzamanlı iki istek aynı masayı boş görüp ikisi de kaydedebilir.
-            await _uow.ExecuteInLockedTransactionAsync(GetDateLockKey(targetDate), async () =>
+            // müsaitlik ve kullanıcı limiti kontrolleri kayıt ile aynı kilitler altında yapılır; aksi halde eşzamanlı istekler aynı masayı boş görüp
+            // ikisi de kaydedebilir veya kullanıcı farklı günlere aynı anda istek atarak aktif rezervasyon limitini aşabilir.
+            // kilit sırası sabittir (önce kullanıcı, sonra gün); gün kilidini tek başına alan diğer işlemlerle deadlock oluşmaz.
+            await _uow.ExecuteInLockedTransactionAsync(new[] { GetUserLockKey(parsedUserId), GetDateLockKey(targetDate) }, async () =>
             {
+                var today = _timeProvider.GetLocalToday();
+                var activeReservations = await _reservationRepository.GetWhereAsync(r => r.AppUserId == parsedUserId && r.ReservationDate >= today &&
+                    (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved), cancellationToken);
+                if (activeReservations.Count() >= MaxActiveReservationsPerUser)
+                    throw new LogicException("ReservationLimit", $"Aynı anda en fazla {MaxActiveReservationsPerUser} aktif rezervasyonunuz olabilir. Yeni rezervasyon için mevcut rezervasyonlarınızdan birini iptal edebilirsiniz.");
+
                 var availableTables = await GetAvailableTablesAsync(targetDate, reqStart, reqEnd, dto.NumberOfGuests, null, cancellationToken);
 
                 if (dto.SelectedTableId.HasValue)
@@ -115,7 +129,7 @@ namespace Yummy.Business.Managers
 
             // saat ve dakika birlikte dikkate alınır (19:59'luk bir rezervasyon 19:00 gibi hesaplanmaz).
             var reservationDateTime = reservation.ReservationDate.Date.Add(reservationTime);
-            if (reservationDateTime <= DateTime.Now.AddHours(MinHoursBeforeChange))
+            if (reservationDateTime <= _timeProvider.GetLocalDateTime().AddHours(MinHoursBeforeChange))
                 throw new LogicException("TooLate", $"Rezervasyon saatinize {MinHoursBeforeChange} saatten az kaldığı için iptal işlemi yapılamaz.");
 
             reservation.ReservationStatus = ReservationStatus.Cancelled;
@@ -177,7 +191,7 @@ namespace Yummy.Business.Managers
         public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default)
         {
             // aralık sorgusu: kayıtta saat kısmı olsa bile bugünün rezervasyonları kaçırılmaz ve ReservationDate üzerindeki index kullanılabilir.
-            var today = DateTime.Today;
+            var today = _timeProvider.GetLocalToday();
             var tomorrow = today.AddDays(1);
             var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationDate >= today && x.ReservationDate < tomorrow, cancellationToken, x => x.DiningTable);
             return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
@@ -220,13 +234,11 @@ namespace Yummy.Business.Managers
             if (TimeSpan.TryParse(reservation.ReservationTime, out TimeSpan parsedTime))
                 exactReservationDateTime = exactReservationDateTime.Add(parsedTime);
 
-            if (exactReservationDateTime < DateTime.Now)
+            if (exactReservationDateTime < _timeProvider.GetLocalDateTime())
                 throw new LogicException("PastReservation", "Geçmiş rezervasyonlarda herhangi bir değişiklik yapılamaz.");
 
-            if (exactReservationDateTime <= DateTime.Now.AddHours(MinHoursBeforeChange))
+            if (exactReservationDateTime <= _timeProvider.GetLocalDateTime().AddHours(MinHoursBeforeChange))
                 throw new LogicException("TooLate", $"Rezervasyonunuza {MinHoursBeforeChange} saatten az bir süre kaldığı için değişiklik yapılamaz.");
-
-            bool isChanged = false;
 
             string incomingMessage = dto.Message ?? string.Empty;
 
@@ -238,13 +250,17 @@ namespace Yummy.Business.Managers
                 reservation.ReservationEndTime != dto.ReservationEndTime ||
                 reservation.NumberOfGuests != dto.NumberOfGuests;
 
+            // hiçbir alan değişmediyse kayıt ve e-posta işlemi yapılmaz; aksi halde kullanıcıya gereksiz yere "güncellendi" e-postası gider.
+            if (!isSlotChanged && reservation.Message == incomingMessage)
+                throw new LogicException("NoChanges", "Rezervasyonunuzda herhangi bir değişiklik yapılmadı.");
+
             if (isSlotChanged)
             {
                 if (!TimeSpan.TryParse(dto.ReservationTime, out reqStart) || !TimeSpan.TryParse(dto.ReservationEndTime, out reqEnd))
                     throw new LogicException("InvalidTime", "Geçersiz saat formatı.");
 
                 var newReservationDateTime = targetDate.Add(reqStart);
-                if (newReservationDateTime < DateTime.Now)
+                if (newReservationDateTime < _timeProvider.GetLocalDateTime())
                     throw new LogicException("PastReservation", "Geçmiş bir tarihe veya saate rezervasyon güncellenemez.");
             }
 
@@ -254,17 +270,16 @@ namespace Yummy.Business.Managers
                 {
                     var availableTables = await GetAvailableTablesAsync(targetDate, reqStart, reqEnd, dto.NumberOfGuests, reservation.ReservationId, cancellationToken);
 
-                    var selectedTable = availableTables.FirstOrDefault()
+                    // rezervasyonun mevcut masası yeni saat aralığında ve kişi sayısında hâlâ uygunsa korunur; değilse en küçük uygun masa atanır.
+                    var selectedTable = availableTables.FirstOrDefault(t => t.DiningTableId == reservation.DiningTableId)
+                        ?? availableTables.FirstOrDefault()
                         ?? throw new LogicException("NoTable", "Seçtiğiniz yeni tarih ve saat aralığında kişi sayınıza uygun boş masamız bulunmamaktadır.");
 
                     reservation.DiningTableId = selectedTable.DiningTableId;
-                    isChanged = true;
                 }
 
-                if (reservation.Message != incomingMessage)
-                    isChanged = true;
-
-                if (isChanged && reservation.ReservationStatus == ReservationStatus.Approved)
+                // onaylanmış rezervasyonda yapılan her değişiklik tekrar onaya düşer.
+                if (reservation.ReservationStatus == ReservationStatus.Approved)
                     reservation.ReservationStatus = ReservationStatus.Pending;
                 _mapper.Map(dto, reservation);
 
@@ -308,7 +323,7 @@ namespace Yummy.Business.Managers
                     throw new LogicException("InvalidTime", "Rezervasyonun saat bilgisi geçersiz.");
 
                 var targetDate = reservation.ReservationDate.Date;
-                if (targetDate.Add(resStart) < DateTime.Now)
+                if (targetDate.Add(resStart) < _timeProvider.GetLocalDateTime())
                     throw new LogicException("PastReservation", "Başlangıç saati geçmiş bir rezervasyon tekrar aktif edilemez.");
 
                 await _uow.ExecuteInLockedTransactionAsync(GetDateLockKey(targetDate), async () =>
@@ -333,46 +348,61 @@ namespace Yummy.Business.Managers
                 await _uow.SaveAsync(cancellationToken);
             }
 
-            string statusTitle = "";
-            string statusMessage = "";
-            string statusColor = "";
-
             switch (reservation.ReservationStatus)
             {
                 case ReservationStatus.Approved:
-                    statusTitle = "Rezervasyon Onaylandı";
-                    statusMessage = "onaylanmıştır. Sizi ağırlamaktan mutluluk duyacağız";
-                    statusColor = "#28a745";
+                    await SendStatusEmailAsync(reservation, "Rezervasyon Onaylandı", "onaylanmıştır. Sizi ağırlamaktan mutluluk duyacağız", "#28a745", cancellationToken);
                     break;
                 case ReservationStatus.Cancelled:
-                    statusTitle = "Rezervasyon İptal Edildi";
-                    statusMessage = "operasyonel nedenler nedeniyle iptal edilmiştir";
-                    statusColor = "#dc3545";
+                    await SendStatusEmailAsync(reservation, "Rezervasyon İptal Edildi", "operasyonel nedenler nedeniyle iptal edilmiştir", "#dc3545", cancellationToken);
                     break;
                 case ReservationStatus.Pending:
-                    statusTitle = "Rezervasyon Beklemede";
-                    statusMessage = "tekrar değerlendirmeye alınmış ve bekleme durumuna çekilmiştir";
-                    statusColor = "#ffc107";
+                    await SendStatusEmailAsync(reservation, "Rezervasyon Beklemede", "tekrar değerlendirmeye alınmış ve bekleme durumuna çekilmiştir", "#ffc107", cancellationToken);
                     break;
-                case ReservationStatus.Completed:
-                default:
-                    return;
+            }
+        }
+
+        public async Task<int> ProcessPastReservationsAsync(CancellationToken cancellationToken = default)
+        {
+            var now = _timeProvider.GetLocalDateTime();
+            var today = now.Date;
+
+            // sadece bugün veya daha önceki günlere ait aktif rezervasyonlar çekilir; ileri tarihli rezervasyonların süresi dolmuş olamaz.
+            var candidates = await _reservationRepository.GetWhereAsync(r => r.ReservationDate <= today &&
+                (r.ReservationStatus == ReservationStatus.Approved || r.ReservationStatus == ReservationStatus.Pending), cancellationToken);
+
+            var expiredPendingReservations = new List<Reservation>();
+            var processedCount = 0;
+
+            foreach (var reservation in candidates)
+            {
+                if (!TimeSpan.TryParse(reservation.ReservationEndTime, out TimeSpan endTime) || reservation.ReservationDate.Date.Add(endTime) > now)
+                    continue;
+
+                if (reservation.ReservationStatus == ReservationStatus.Approved)
+                {
+                    reservation.ReservationStatus = ReservationStatus.Completed;
+                }
+                else
+                {
+                    // restoran tarafından zamanında onaylanmamış rezervasyonlar iptal edilir ve kullanıcı bilgilendirilir.
+                    reservation.ReservationStatus = ReservationStatus.Cancelled;
+                    expiredPendingReservations.Add(reservation);
+                }
+
+                _reservationRepository.Update(reservation);
+                processedCount++;
             }
 
-            var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
-            await TrySendEmailAsync(reservation, "ReservationStatusTemplate.html", $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})", new Dictionary<string, string>
-            {
-                ["{{Name}}"] = reservation.Name,
-                ["{{Surname}}"] = reservation.Surname,
-                ["{{StatusTitle}}"] = statusTitle,
-                ["{{StatusMessage}}"] = statusMessage,
-                ["#112233"] = statusColor,
-                ["{{Date}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
-                ["{{Time}}"] = reservation.ReservationTime,
-                ["{{Guests}}"] = reservation.NumberOfGuests.ToString(),
-                ["{{TableNo}}"] = table?.TableNo ?? "",
-                ["{{Location}}"] = table?.Location ?? "Belirtilmemiş"
-            });
+            if (processedCount == 0)
+                return 0;
+
+            await _uow.SaveAsync(cancellationToken);
+
+            foreach (var reservation in expiredPendingReservations)
+                await SendStatusEmailAsync(reservation, "Rezervasyon İptal Edildi", "rezervasyon saatine kadar onaylanamadığı için iptal edilmiştir. Anlayışınız için teşekkür ederiz", "#dc3545", cancellationToken);
+
+            return processedCount;
         }
 
         public async Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default)
@@ -393,6 +423,24 @@ namespace Yummy.Business.Managers
                 Location = table.Location,
                 IsAvailable = !busyTableIds.Contains(table.DiningTableId)
             }).ToList();
+        }
+
+        private async Task SendStatusEmailAsync(Reservation reservation, string statusTitle, string statusMessage, string statusColor, CancellationToken cancellationToken)
+        {
+            var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
+            await TrySendEmailAsync(reservation, "ReservationStatusTemplate.html", $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})", new Dictionary<string, string>
+            {
+                ["{{Name}}"] = reservation.Name,
+                ["{{Surname}}"] = reservation.Surname,
+                ["{{StatusTitle}}"] = statusTitle,
+                ["{{StatusMessage}}"] = statusMessage,
+                ["#112233"] = statusColor,
+                ["{{Date}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
+                ["{{Time}}"] = reservation.ReservationTime,
+                ["{{Guests}}"] = reservation.NumberOfGuests.ToString(),
+                ["{{TableNo}}"] = table?.TableNo ?? "",
+                ["{{Location}}"] = table?.Location ?? "Belirtilmemiş"
+            });
         }
 
         // e-posta, rezervasyon veritabanına kaydedildikten sonra gönderilir. şablon bulunamaz veya SMTP hata verirse işlem geri alınmaz;
@@ -417,6 +465,9 @@ namespace Yummy.Business.Managers
 
         // aynı güne ait rezervasyon yazma işlemleri bu anahtar ile kilitlenir. farklı günlerin istekleri birbirini beklemez.
         private static string GetDateLockKey(DateTime date) => $"reservation:{date:yyyy-MM-dd}";
+
+        // aynı kullanıcının rezervasyon oluşturma istekleri bu anahtar ile sıraya girer (aktif rezervasyon limiti için).
+        private static string GetUserLockKey(Guid userId) => $"reservation-user:{userId}";
 
         // iki saat aralığı, biri diğeri bitmeden başlıyorsa çakışır. uç uca eklenen aralıklar (19:00-21:00 ve 21:00-22:00) çakışmaz.
         private static bool IsOverlapping(TimeSpan startA, TimeSpan endA, TimeSpan startB, TimeSpan endB) =>
