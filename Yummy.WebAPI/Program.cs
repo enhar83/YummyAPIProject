@@ -49,13 +49,15 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Yummy API", Version = "v1" });
+    // Http + bearer tipinde tanımlandığı için Swagger "Bearer " ön ekini kendisi ekler; sadece token'ın yapıştırılması yeterlidir.
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Lütfen 'Bearer' yazıp boşluk bıraktıktan sonra Token'ınızı giriniz.\r\n\r\nÖrnek: \"Bearer eyJhbGci...\"",
+        Description = "Login endpoint'inden aldığınız access token'ı yapıştırınız. 'Bearer' yazmanıza gerek yoktur.\r\n\r\nÖrnek: \"eyJhbGci...\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
@@ -66,10 +68,7 @@ builder.Services.AddSwaggerGen(c =>
                 {
                     Type = ReferenceType.SecurityScheme,
                     Id = "Bearer"
-                },
-                Scheme = "oauth2",
-                Name = "Bearer",
-                In = ParameterLocation.Header,
+                }
             },
             new List<string>()
         }

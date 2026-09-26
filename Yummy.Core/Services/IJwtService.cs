@@ -10,7 +10,7 @@ namespace Yummy.Core.Services
 {
     public interface IJwtService
     {
-        string CreateToken(AppUser user, IEnumerable<string> roles);
+        (string Token, DateTime ExpiresAt) CreateToken(AppUser user, IEnumerable<string> roles);
         Task<string?> GetUserIdFromExpiredTokenAsync(string accessToken);
     }
 }

@@ -20,8 +20,11 @@ namespace Yummy.Business.Managers
             _jwtSettings = jwtSettings.Value;
         }
 
-        public string CreateToken(AppUser user, IEnumerable<string> roles)
+        public (string Token, DateTime ExpiresAt) CreateToken(AppUser user, IEnumerable<string> roles)
         {
+            // bitiş zamanı tek bir yerde ve UTC olarak hesaplanır; hem token'a hem de istemciye dönen cevaba aynı değer yazılır.
+            var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration);
+
             // token içerisinde herhangi bir değişiklik yapılırsa farkedilebilmesi için şifrelenme vs. işlemleri yapılır.
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecurityKey));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -52,12 +55,12 @@ namespace Yummy.Business.Managers
                 Issuer = _jwtSettings.Issuer,
                 Audience = _jwtSettings.Audience,
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.Now.AddMinutes(_jwtSettings.AccessTokenExpiration), 
+                Expires = expiresAt,
                 SigningCredentials = credentials
             };
 
             var handler = new JsonWebTokenHandler(); // .NET standartlarına uygun olan JsonWebTokenHandler kullanılarak token string formatında oluşturulup döndürülür.
-            return handler.CreateToken(tokenDescriptor);
+            return (handler.CreateToken(tokenDescriptor), expiresAt);
         }
 
         // refresh işleminde gönderilen (süresi dolmuş olabilecek) access token'ın gerçekten bizim tarafımızdan imzalandığı doğrulanır ve içerisindeki kullanıcı id'si döndürülür.

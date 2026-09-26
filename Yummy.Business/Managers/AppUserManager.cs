@@ -12,11 +12,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
-using Yummy.Core.Settings;
 using Yummy.Entity;
 
 namespace Yummy.Business.Managers
@@ -28,17 +26,15 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
-        private readonly JwtSettings _jwtSettings;
         private readonly IWebHostEnvironment _environment;
 
-        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IOptions<JwtSettings> jwtSettings, IWebHostEnvironment environment)
+        public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IWebHostEnvironment environment)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _mapper = mapper;
             _emailService = emailService;
             _jwtService = jwtService;
-            _jwtSettings = jwtSettings.Value;
             _environment = environment;
         }
 
@@ -177,11 +173,11 @@ namespace Yummy.Business.Managers
 
             var roles = await _userManager.GetRolesAsync(user); // jwt'ye gömülmek için kullanıcı roller alınır.
 
-            var accessToken = _jwtService.CreateToken(user, roles); // jwtManager içerisinde token oluşturulur.
-            var refreshToken = GenerateRefreshToken(); // jwt süresi dolduğunda yenilemeyi sağlayacak refresh token üretilir. 
+            var (accessToken, accessTokenExpiresAt) = _jwtService.CreateToken(user, roles); // jwtManager içerisinde token ve bitiş zamanı (UTC) oluşturulur.
+            var refreshToken = GenerateRefreshToken(); // jwt süresi dolduğunda yenilemeyi sağlayacak refresh token üretilir.
 
-            user.RefreshToken = refreshToken; // token kontrolü yapılabilmesi için dbye yazılır. 
-            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+            user.RefreshToken = refreshToken; // token kontrolü yapılabilmesi için dbye yazılır.
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
 
             var updateResult = await _userManager.UpdateAsync(user); // RefreshToken propu dbye kaydedildiği için bir update işlemi gerçekleşir. 
             if (!updateResult.Succeeded)
@@ -191,7 +187,7 @@ namespace Yummy.Business.Managers
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiryTime = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration)
+                AccessTokenExpiryTime = accessTokenExpiresAt
             };
         }
 
@@ -333,15 +329,15 @@ namespace Yummy.Business.Managers
             if (user == null || user.Id.ToString() != userIdFromToken)
                 throw new LogicException("InvalidToken", "Geçersiz yenileme anahtarı.");
 
-            if (user.RefreshTokenExpiryTime <= DateTime.Now)
+            if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)
                 throw new LogicException("TokenExpired", "Oturum süreniz tamamen dolmuş. Lütfen tekrar giriş yapın.");
 
             var roles = await _userManager.GetRolesAsync(user);
-            var newAccessToken = _jwtService.CreateToken(user, roles);
+            var (newAccessToken, accessTokenExpiresAt) = _jwtService.CreateToken(user, roles);
             var newRefreshToken = GenerateRefreshToken();
 
             user.RefreshToken = newRefreshToken;
-            user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
 
             var updateResult = await _userManager.UpdateAsync(user);
             if (!updateResult.Succeeded)
@@ -351,7 +347,7 @@ namespace Yummy.Business.Managers
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                AccessTokenExpiryTime = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration)
+                AccessTokenExpiryTime = accessTokenExpiresAt
             };
         }
 
