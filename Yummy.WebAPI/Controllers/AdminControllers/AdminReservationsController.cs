@@ -32,7 +32,7 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         public async Task<IActionResult> UpdateReservationStatus([FromBody] UpdateReservationDto dto)
         {
             await _reservationService.UpdateReservationStatusAsync(dto);
-            return Ok("Rezarvasyon durumu başarıyla güncellendi.");
+            return Ok("Rezervasyon durumu başarıyla güncellendi.");
         }
 
         [HttpGet("get-reservation/{id}")]
@@ -47,14 +47,6 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
         {
             var reservations = await _reservationService.GetTodaysReservationListAsync();
             return Ok(reservations);
-        }
-
-        [HttpGet("map-status")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetMapStatus([FromQuery] DateTime date, [FromQuery] string time, [FromQuery] string endTime)
-        {
-            var statuses = await _reservationService.GetTableStatusesForMapAsync(date, time, endTime);
-            return Ok(statuses);
         }
     }
 }

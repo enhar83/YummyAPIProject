@@ -16,12 +16,16 @@ namespace Yummy.Business.Mappings
     {
         public ReservationMapping()
         {
+            // ReservationDate sadece gün bilgisini taşır; istemci saat kısmı gönderse bile (örn. 2026-09-29T19:00) kesilir.
+            // saat bilgisi ReservationTime/ReservationEndTime alanlarında tutulur.
             CreateMap<ReservationCreateDto, Reservation>()
+                .ForMember(dest => dest.ReservationDate, opt => opt.MapFrom(src => src.ReservationDate.Date))
                 .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message ?? string.Empty))
                 .ForMember(dest => dest.ReservationStatus, opt => opt.MapFrom(src => ReservationStatus.Pending))
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore());
 
             CreateMap<ReservationUpdateDto, Reservation>()
+                .ForMember(dest => dest.ReservationDate, opt => opt.MapFrom(src => src.ReservationDate.Date))
                 .ForMember(dest => dest.Message, opt => opt.MapFrom(src => src.Message ?? string.Empty))
                 .ForMember(dest => dest.AppUserId, opt => opt.Ignore());
 

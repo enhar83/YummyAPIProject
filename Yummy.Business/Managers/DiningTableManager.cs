@@ -30,6 +30,9 @@ namespace Yummy.Business.Managers
 
         public async Task AddAsync(DiningTableCreateDto dto, CancellationToken cancellationToken = default)
         {
+            dto.TableNo = dto.TableNo.Trim();
+            await EnsureTableNoIsUniqueAsync(dto.TableNo, null, cancellationToken);
+
             var table = _mapper.Map<DiningTable>(dto);
             await _tableRepository.AddAsync(table, cancellationToken);
             await _uow.SaveAsync(cancellationToken);
@@ -56,6 +59,9 @@ namespace Yummy.Business.Managers
             if (table == null)
                 throw new LogicException("NotFound", "Güncellenecek masa bulunamadı.");
 
+            dto.TableNo = dto.TableNo.Trim();
+            await EnsureTableNoIsUniqueAsync(dto.TableNo, table.DiningTableId, cancellationToken);
+
             // bugün veya ileri tarihli aktif (Pending/Approved) rezervasyonu olan masa pasife alınamaz; aksi halde bu rezervasyonlar kullanılamayan bir masada kalır.
             // geçmiş, tamamlanmış veya iptal edilmiş rezervasyonlar engel değildir ve masa pasife alındıktan sonra da kullanıcıların listelerinde görünmeye devam eder.
             if (table.IsActive && !dto.IsActive)
@@ -68,9 +74,29 @@ namespace Yummy.Business.Managers
                     throw new LogicException("TableHasActiveReservations", "Bu masaya ait bekleyen veya onaylanmış rezervasyonlar bulunduğu için masa pasife alınamaz. Önce ilgili rezervasyonları iptal ediniz.");
             }
 
+            // kapasite düşürülürken, masadaki aktif rezervasyonlardan yeni kapasiteye sığmayan olup olmadığı kontrol edilir.
+            if (dto.Capacity < table.Capacity)
+            {
+                var hasLargerReservation = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
+                    r.ReservationDate >= DateTime.Today &&
+                    (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved) &&
+                    r.NumberOfGuests > dto.Capacity, cancellationToken);
+
+                if (hasLargerReservation)
+                    throw new LogicException("CapacityConflict", "Bu masada yeni kapasiteden daha fazla kişilik bekleyen veya onaylanmış rezervasyonlar bulunduğu için kapasite düşürülemez.");
+            }
+
             _mapper.Map(dto, table);
             _tableRepository.Update(table);
             await _uow.SaveAsync(cancellationToken);
+        }
+
+        // masa numarası pasif masalar dahil tüm masalar arasında benzersiz olmalıdır. veritabanında da unique index ile garanti altına alınır.
+        private async Task EnsureTableNoIsUniqueAsync(string tableNo, Guid? excludeTableId, CancellationToken cancellationToken)
+        {
+            var excludedId = excludeTableId ?? Guid.Empty;
+            if (await _tableRepository.AnyAsync(t => t.TableNo == tableNo && t.DiningTableId != excludedId, cancellationToken))
+                throw new LogicException("TableNo", $"'{tableNo}' numaralı bir masa zaten mevcut.");
         }
     }
 }

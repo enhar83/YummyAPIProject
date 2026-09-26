@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Yummy.Core.DTOs.ProductDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
@@ -25,14 +26,19 @@ namespace Yummy.Business.Managers
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
+        private readonly ILogger<ReservationManager> _logger;
 
-        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService)
+        // kullanıcı, rezervasyon saatine bu süreden az kaldığında rezervasyonunu iptal edemez veya güncelleyemez.
+        private const int MinHoursBeforeChange = 2;
+
+        public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService, ILogger<ReservationManager> logger)
         {
             _reservationRepository = reservationRepository;
             _tableRepository = tableRepository;
             _uow = uow;
             _mapper = mapper;
             _emailService = emailService;
+            _logger = logger;
         }
 
         public async Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default)
@@ -76,24 +82,17 @@ namespace Yummy.Business.Managers
                 await _uow.SaveAsync(cancellationToken);
             }, cancellationToken);
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationReceivedTemplate.html");
-            if (!File.Exists(templatePath))
-                throw new LogicException("TemplateError", "E-posta şablonu bulunamadı.");
-
-            var emailTemplate = await File.ReadAllTextAsync(templatePath);
-            var mailBody = emailTemplate
-                .Replace("{{Name}}", dto.Name)
-                .Replace("{{Surname}}", dto.Surname)
-                .Replace("{{Date}}", dto.ReservationDate.ToString("dd.MM.yyyy"))
-                .Replace("{{Time}}", dto.ReservationTime)
-                .Replace("{{Guests}}", dto.NumberOfGuests.ToString())
-                .Replace("{{Phone}}", dto.Phone)
-                .Replace("{{TableNo}}", selectedTable.TableNo)
-                .Replace("{{Location}}", selectedTable.Location ?? "Belirtilmemiş");
-
-            var subject = "Yummy Restoran - Rezervasyon Talebiniz Alındı";
-
-            await _emailService.SendEmailAsync(dto.Email, subject, mailBody);
+            await TrySendEmailAsync(reservation, "ReservationReceivedTemplate.html", "Yummy Restoran - Rezervasyon Talebiniz Alındı", new Dictionary<string, string>
+            {
+                ["{{Name}}"] = reservation.Name,
+                ["{{Surname}}"] = reservation.Surname,
+                ["{{Date}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
+                ["{{Time}}"] = reservation.ReservationTime,
+                ["{{Guests}}"] = reservation.NumberOfGuests.ToString(),
+                ["{{Phone}}"] = reservation.Phone,
+                ["{{TableNo}}"] = selectedTable.TableNo,
+                ["{{Location}}"] = selectedTable.Location ?? "Belirtilmemiş"
+            });
         }
 
         public async Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default)
@@ -108,30 +107,33 @@ namespace Yummy.Business.Managers
             if (reservation.ReservationStatus == ReservationStatus.Cancelled)
                 throw new LogicException("AlreadyCancelled", "Bu rezervasyon zaten daha önce iptal edilmiş.");
 
-            var reservationDateTime = reservation.ReservationDate.Date.AddHours(int.Parse(reservation.ReservationTime.Split(':')[0]));
+            if (reservation.ReservationStatus == ReservationStatus.Completed)
+                throw new LogicException("NotAllowed", "Tamamlanmış rezervasyonlar iptal edilemez.");
 
-            if (reservationDateTime < DateTime.Now.AddHours(1))
-                throw new LogicException("TooLate", "Rezervasyon saatinize 2 saatten az kaldığı için iptal işlemi yapılamaz.");
+            if (!TimeSpan.TryParse(reservation.ReservationTime, out TimeSpan reservationTime))
+                throw new LogicException("InvalidTime", "Rezervasyonun saat bilgisi geçersiz.");
+
+            // saat ve dakika birlikte dikkate alınır (19:59'luk bir rezervasyon 19:00 gibi hesaplanmaz).
+            var reservationDateTime = reservation.ReservationDate.Date.Add(reservationTime);
+            if (reservationDateTime <= DateTime.Now.AddHours(MinHoursBeforeChange))
+                throw new LogicException("TooLate", $"Rezervasyon saatinize {MinHoursBeforeChange} saatten az kaldığı için iptal işlemi yapılamaz.");
 
             reservation.ReservationStatus = ReservationStatus.Cancelled;
 
             _reservationRepository.Update(reservation);
             await _uow.SaveAsync(cancellationToken);
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationCancelledTemplate.html");
-            var emailTemplate = await File.ReadAllTextAsync(templatePath);
-
             var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
-            var mailBody = emailTemplate
-                .Replace("{{Name}}", reservation.Name)
-                .Replace("{{Surname}}", reservation.Surname)
-                .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
-                .Replace("{{Time}}", reservation.ReservationTime)
-                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString())
-                .Replace("{{TableNo}}", table?.TableNo ?? "")
-                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
-
-            await _emailService.SendEmailAsync(reservation.Email, "Yummy Restoran - Rezervasyonunuz İptal Edildi", mailBody);
+            await TrySendEmailAsync(reservation, "ReservationCancelledTemplate.html", "Yummy Restoran - Rezervasyonunuz İptal Edildi", new Dictionary<string, string>
+            {
+                ["{{Name}}"] = reservation.Name,
+                ["{{Surname}}"] = reservation.Surname,
+                ["{{Date}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
+                ["{{Time}}"] = reservation.ReservationTime,
+                ["{{Guests}}"] = reservation.NumberOfGuests.ToString(),
+                ["{{TableNo}}"] = table?.TableNo ?? "",
+                ["{{Location}}"] = table?.Location ?? "Belirtilmemiş"
+            });
         }
 
         public async Task<CheckAvailabilityResponseDto> CheckAvailabilityAsync(CheckAvailabilityRequestDto dto, CancellationToken cancellationToken = default)
@@ -174,7 +176,10 @@ namespace Yummy.Business.Managers
 
         public async Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default)
         {
-            var entities = await _reservationRepository.GetWhereAsync(x=>x.ReservationDate == DateTime.Today, cancellationToken, x => x.DiningTable);
+            // aralık sorgusu: kayıtta saat kısmı olsa bile bugünün rezervasyonları kaçırılmaz ve ReservationDate üzerindeki index kullanılabilir.
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+            var entities = await _reservationRepository.GetWhereAsync(x => x.ReservationDate >= today && x.ReservationDate < tomorrow, cancellationToken, x => x.DiningTable);
             return _mapper.Map<IEnumerable<ReservationListDto>>(entities);
         }
 
@@ -218,8 +223,8 @@ namespace Yummy.Business.Managers
             if (exactReservationDateTime < DateTime.Now)
                 throw new LogicException("PastReservation", "Geçmiş rezervasyonlarda herhangi bir değişiklik yapılamaz.");
 
-            if (exactReservationDateTime <= DateTime.Now.AddHours(2))
-                throw new LogicException("TooLate", "Rezervasyonunuza 2 saatten az bir süre kaldığı için değişiklik yapılamaz.");
+            if (exactReservationDateTime <= DateTime.Now.AddHours(MinHoursBeforeChange))
+                throw new LogicException("TooLate", $"Rezervasyonunuza {MinHoursBeforeChange} saatten az bir süre kaldığı için değişiklik yapılamaz.");
 
             bool isChanged = false;
 
@@ -267,26 +272,17 @@ namespace Yummy.Business.Managers
                 await _uow.SaveAsync(cancellationToken);
             }, cancellationToken);
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationUpdatedTemplate.html");
-
-            if (!File.Exists(templatePath))
-                throw new LogicException("TemplateError", "Güncelleme e-posta şablonu bulunamadı.");
-
-            var emailTemplate = await File.ReadAllTextAsync(templatePath);
-
             var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
-            var mailBody = emailTemplate
-                .Replace("{{Name}}", reservation.Name)
-                .Replace("{{Surname}}", reservation.Surname)
-                .Replace("{{NewDate}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
-                .Replace("{{NewTime}}", reservation.ReservationTime)
-                .Replace("{{NewGuests}}", reservation.NumberOfGuests.ToString())
-                .Replace("{{TableNo}}", table?.TableNo ?? "")
-                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
-
-            var subject = "Yummy Restoran - Rezervasyonunuz Güncellendi ve Onay Bekliyor";
-
-            await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
+            await TrySendEmailAsync(reservation, "ReservationUpdatedTemplate.html", "Yummy Restoran - Rezervasyonunuz Güncellendi ve Onay Bekliyor", new Dictionary<string, string>
+            {
+                ["{{Name}}"] = reservation.Name,
+                ["{{Surname}}"] = reservation.Surname,
+                ["{{NewDate}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
+                ["{{NewTime}}"] = reservation.ReservationTime,
+                ["{{NewGuests}}"] = reservation.NumberOfGuests.ToString(),
+                ["{{TableNo}}"] = table?.TableNo ?? "",
+                ["{{Location}}"] = table?.Location ?? "Belirtilmemiş"
+            });
         }
 
         public async Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default)
@@ -337,10 +333,6 @@ namespace Yummy.Business.Managers
                 await _uow.SaveAsync(cancellationToken);
             }
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ReservationStatusTemplate.html");
-            if (!File.Exists(templatePath))
-                throw new LogicException("TemplateError", "Durum güncelleme e-posta şablonu bulunamadı.");
-
             string statusTitle = "";
             string statusMessage = "";
             string statusColor = "";
@@ -367,24 +359,20 @@ namespace Yummy.Business.Managers
                     return;
             }
 
-            var emailTemplate = await File.ReadAllTextAsync(templatePath);
-
             var table = await _tableRepository.GetByIdAsync(reservation.DiningTableId, cancellationToken);
-            var mailBody = emailTemplate
-                .Replace("{{Name}}", reservation.Name)
-                .Replace("{{Surname}}", reservation.Surname)
-                .Replace("{{StatusTitle}}", statusTitle)
-                .Replace("{{StatusMessage}}", statusMessage)
-                .Replace("#112233", statusColor)
-                .Replace("{{Date}}", reservation.ReservationDate.ToString("dd.MM.yyyy"))
-                .Replace("{{Time}}", reservation.ReservationTime)
-                .Replace("{{Guests}}", reservation.NumberOfGuests.ToString())
-                .Replace("{{TableNo}}", table?.TableNo ?? "")
-                .Replace("{{Location}}", table?.Location ?? "Belirtilmemiş");
-
-            var subject = $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})";
-
-            await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
+            await TrySendEmailAsync(reservation, "ReservationStatusTemplate.html", $"Yummy Restoran - Rezervasyon Bilgilendirmesi ({statusTitle})", new Dictionary<string, string>
+            {
+                ["{{Name}}"] = reservation.Name,
+                ["{{Surname}}"] = reservation.Surname,
+                ["{{StatusTitle}}"] = statusTitle,
+                ["{{StatusMessage}}"] = statusMessage,
+                ["#112233"] = statusColor,
+                ["{{Date}}"] = reservation.ReservationDate.ToString("dd.MM.yyyy"),
+                ["{{Time}}"] = reservation.ReservationTime,
+                ["{{Guests}}"] = reservation.NumberOfGuests.ToString(),
+                ["{{TableNo}}"] = table?.TableNo ?? "",
+                ["{{Location}}"] = table?.Location ?? "Belirtilmemiş"
+            });
         }
 
         public async Task<IEnumerable<TableStatusForMapDto>> GetTableStatusesForMapAsync(DateTime date, string time, string endTime, CancellationToken cancellationToken = default)
@@ -405,6 +393,26 @@ namespace Yummy.Business.Managers
                 Location = table.Location,
                 IsAvailable = !busyTableIds.Contains(table.DiningTableId)
             }).ToList();
+        }
+
+        // e-posta, rezervasyon veritabanına kaydedildikten sonra gönderilir. şablon bulunamaz veya SMTP hata verirse işlem geri alınmaz;
+        // hata loglanır ve istemciye başarılı cevap dönülür. aksi halde kullanıcı hata görüp tekrar dener ve mükerrer rezervasyon oluşur.
+        private async Task TrySendEmailAsync(Reservation reservation, string templateName, string subject, IReadOnlyDictionary<string, string> placeholders)
+        {
+            try
+            {
+                var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", templateName);
+                var mailBody = await File.ReadAllTextAsync(templatePath);
+
+                foreach (var placeholder in placeholders)
+                    mailBody = mailBody.Replace(placeholder.Key, placeholder.Value);
+
+                await _emailService.SendEmailAsync(reservation.Email, subject, mailBody);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Rezervasyon e-postası gönderilemedi. Rezervasyon: {ReservationId}, Şablon: {TemplateName}", reservation.ReservationId, templateName);
+            }
         }
 
         // aynı güne ait rezervasyon yazma işlemleri bu anahtar ile kilitlenir. farklı günlerin istekleri birbirini beklemez.

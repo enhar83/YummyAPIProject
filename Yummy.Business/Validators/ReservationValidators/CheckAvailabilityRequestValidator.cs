@@ -16,7 +16,7 @@ namespace Yummy.Business.Validators.ReservationValidators
             RuleFor(x => x.ReservationDate)
             .NotEmpty().WithMessage("Tarih seçimi zorunludur.")
             .GreaterThanOrEqualTo(DateTime.Today).WithMessage("Geçmiş bir tarih için uygunluk kontrolü yapılamaz.")
-            .LessThanOrEqualTo(DateTime.Today.AddMonths(1)).WithMessage("En fazla 1 ay sonrasına uygunluk kontrolü yapabilirsiniz.");
+            .Must(date => date.Date <= DateTime.Today.AddMonths(1)).WithMessage("En fazla 1 ay sonrasına uygunluk kontrolü yapabilirsiniz.");
 
             RuleFor(x => x.ReservationTime)
                 .NotEmpty().WithMessage("Rezervasyon saati zorunludur.")
