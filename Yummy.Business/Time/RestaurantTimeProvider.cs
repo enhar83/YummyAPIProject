@@ -2,8 +2,6 @@ using System;
 
 namespace Yummy.Business.Time
 {
-    // sistem saatini kullanır fakat yerel saat dilimi olarak sunucunun değil restoranın saat dilimini döner.
-    // böylece TimeProvider.GetLocalNow() sunucu nerede çalışırsa çalışsın restoranın yerel saatini verir.
     public class RestaurantTimeProvider : TimeProvider
     {
         private readonly TimeZoneInfo _timeZone;
@@ -16,3 +14,5 @@ namespace Yummy.Business.Time
         public override TimeZoneInfo LocalTimeZone => _timeZone;
     }
 }
+
+// o saat dilimine göre çalışan saattır. DI ile manager ve validatorlara verilir.

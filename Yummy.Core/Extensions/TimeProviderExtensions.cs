@@ -2,11 +2,13 @@ namespace Yummy.Core.Extensions
 {
     public static class TimeProviderExtensions
     {
-        // restoranın yerel saatine göre şu an. rezervasyon tarih/saatleri restoranın yerel saatiyle tutulduğu için karşılaştırmalarda bu değer kullanılır.
-        // DateTime.Now sunucunun saat dilimine bağlıdır; sunucu UTC ise (bulut, docker) tüm kontroller saatlerce kayar.
         public static DateTime GetLocalDateTime(this TimeProvider timeProvider) => timeProvider.GetLocalNow().DateTime;
-
-        // restoranın yerel saatine göre bugünün tarihi.
         public static DateTime GetLocalToday(this TimeProvider timeProvider) => timeProvider.GetLocalNow().Date;
     }
 }
+
+// DateTime.Now ile alınmamasının sebebi, .Now sunucu saatini verir. Sunucu farklı bir saat dilimindeyse UTC gerekmektedir. 
+// program.cs içerisinde ayarı yapılmıştır.
+// saat dilimi koda gömülmemiş olur. restoran başka bir ülkede açılırsa kod açılmadan ayar değişir.
+
+// bu saatten şu an ve bugün bilgisini tek satırda almayı sağlayan kısayol.

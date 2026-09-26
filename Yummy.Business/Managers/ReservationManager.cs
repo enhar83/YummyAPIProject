@@ -30,14 +30,10 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly ILogger<ReservationManager> _logger;
-        private readonly TimeProvider _timeProvider;
+        private readonly TimeProvider _timeProvider; // .net'in saat sınıfıdır. 
 
-        // kullanıcı, rezervasyon saatine bu süreden az kaldığında rezervasyonunu iptal edemez veya güncelleyemez.
-        private const int MinHoursBeforeChange = 2;
-
-        // bir kullanıcının aynı anda sahip olabileceği bekleyen/onaylı (bugün veya ileri tarihli) rezervasyon sayısı.
-        // tek bir kullanıcının tüm masaları doldurmasını ve sistemin keyfi adreslere e-posta göndermek için kullanılmasını sınırlar.
-        public const int MaxActiveReservationsPerUser = 3;
+        private const int MinHoursBeforeChange = 2; // iptal edememe sınırı
+        public const int MaxActiveReservationsPerUser = 3; // kişi başı approved/pending rezervasyon limiti
 
         public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService, ILogger<ReservationManager> logger, TimeProvider timeProvider)
         {
@@ -50,11 +46,6 @@ namespace Yummy.Business.Managers
             _timeProvider = timeProvider;
         }
 
-        // rezervasyon oluşturma akışı:
-        // 1) tarih/saat doğrulanır (HH:mm, bitiş > başlangıç, geçmiş saat olamaz).
-        // 2) kullanıcı + gün kilidi alınır; kullanıcının aktif rezervasyon sayısı (en fazla 3) kontrol edilir.
-        // 3) seçilen masa ya da kişi sayısına yeten en küçük boş masa atanır ve kayıt Pending olarak eklenir.
-        // 4) kilit bırakıldıktan sonra "talebiniz alındı" e-postası gönderilir (hata olursa sadece loglanır).
         public async Task AddReservationAsync(string userId, ReservationCreateDto dto, CancellationToken cancellationToken = default)
         {
             var reservation = _mapper.Map<Reservation>(dto);
