@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Yummy.Core.DTOs.CommonDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
@@ -21,10 +22,11 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             _reservationService = reservationService;
         }
 
+        // sayfalı liste: ?page=1&pageSize=20 (pageSize en fazla 100). en yeni tarihli rezervasyonlar önce gelir.
         [HttpGet]
-        public async Task<IActionResult> GetAllReservations()
+        public async Task<IActionResult> GetAllReservations([FromQuery] PaginationQueryDto query)
         {
-            var reservations = await _reservationService.GetAllReservationsAsync();
+            var reservations = await _reservationService.GetAllReservationsAsync(query);
             return Ok(reservations);
         }
 

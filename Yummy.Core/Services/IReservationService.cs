@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Yummy.Core.DTOs.CommonDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 
 namespace Yummy.Core.Services
@@ -15,7 +16,7 @@ namespace Yummy.Core.Services
         Task CancelReservationAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
         Task UpdateReservationAsync(string userId, ReservationUpdateDto dto, CancellationToken cancellationToken = default);
         Task<PastReservationByUserDto> GetUserReservationByIdAsync(string userId, Guid reservationId, CancellationToken cancellationToken = default);
-        Task<IEnumerable<ReservationListDto>> GetAllReservationsAsync(CancellationToken cancellationToken = default);
+        Task<PagedResultDto<ReservationListDto>> GetAllReservationsAsync(PaginationQueryDto query, CancellationToken cancellationToken = default);
         Task<ReservationListDto> GetReservationByIdAsync(Guid reservationId, CancellationToken cancellationToken = default);
         Task UpdateReservationStatusAsync(UpdateReservationDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<ReservationListDto>> GetTodaysReservationListAsync(CancellationToken cancellationToken = default);

@@ -15,6 +15,18 @@ namespace Yummy.Data.Configurations
                 .HasConversion<string>()
                 .HasMaxLength(20);
 
+            // validator sınırları ile aynı uzunluklar; saatler "HH:mm" formatındadır.
+            builder.Property(r => r.Name).HasMaxLength(50);
+            builder.Property(r => r.Surname).HasMaxLength(50);
+            builder.Property(r => r.Email).HasMaxLength(100);
+            builder.Property(r => r.Phone).HasMaxLength(20);
+            builder.Property(r => r.Message).HasMaxLength(500);
+            builder.Property(r => r.ReservationTime).HasMaxLength(5);
+            builder.Property(r => r.ReservationEndTime).HasMaxLength(5);
+
+            // müsaitlik, harita, günlük liste ve arka plan servisi sorgularının tamamı tarihe göre filtreler.
+            builder.HasIndex(r => r.ReservationDate);
+
             // AppUser → Cascade: Kullanıcı silinince rezervasyonları da silinir.
             builder.HasOne(r => r.AppUser)
                 .WithMany(u => u.Reservations)
@@ -22,8 +34,8 @@ namespace Yummy.Data.Configurations
                 .IsRequired()
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // DiningTable → Restrict: Masa silinmek istenirse önce rezervasyonlar temizlenmelidir.
-            // Böylece "multiple cascade paths" hatası önlenir ve veri bütünlüğü sağlanır.
+            // DiningTable → Restrict: masalar silinmez, sadece pasife alınır; geçmiş rezervasyonların masa bilgisi korunur.
+            // Restrict ayrıca AppUser cascade'i ile birlikte "multiple cascade paths" hatasını önler.
             builder.HasOne(r => r.DiningTable)
                 .WithMany(t => t.Reservations)
                 .HasForeignKey(r => r.DiningTableId)

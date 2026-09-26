@@ -17,17 +17,25 @@ namespace Yummy.Business.Validators.ReservationValidators
         public CreateReservationValidator(TimeProvider timeProvider)
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Ad alanı boş bırakılamaz.");
+                .NotEmpty().WithMessage("Ad alanı boş bırakılamaz.")
+                .MaximumLength(50).WithMessage("Ad en fazla 50 karakter olabilir.");
 
             RuleFor(x => x.Surname)
-                .NotEmpty().WithMessage("Soyad alanı boş bırakılamaz.");
+                .NotEmpty().WithMessage("Soyad alanı boş bırakılamaz.")
+                .MaximumLength(50).WithMessage("Soyad en fazla 50 karakter olabilir.");
 
             RuleFor(x => x.Email)
                 .NotEmpty().WithMessage("E-posta boş bırakılamaz.")
+                .MaximumLength(100).WithMessage("E-posta en fazla 100 karakter olabilir.")
                 .EmailAddress().WithMessage("Lütfen geçerli bir e-posta adresi girin.");
 
+            // rakam, boşluk, tire, parantez ve baştaki + kabul edilir. (örn. 0555 123 45 67, +90 (555) 123-4567)
             RuleFor(x => x.Phone)
-                .NotEmpty().WithMessage("Telefon numarası zorunludur.");
+                .NotEmpty().WithMessage("Telefon numarası zorunludur.")
+                .Matches(@"^\+?[0-9\s\-()]{10,20}$").WithMessage("Lütfen geçerli bir telefon numarası girin. (Örn: 0555 123 45 67)");
+
+            RuleFor(x => x.Message)
+                .MaximumLength(500).WithMessage("Mesaj en fazla 500 karakter olabilir.");
 
             RuleFor(x => x.ReservationDate)
                 .NotEmpty().WithMessage("Rezervasyon tarihi boş bırakılamaz.")

@@ -65,6 +65,28 @@ namespace Yummy.Data.Repositories
             return entity;
         }
 
+        // COUNT ve sayfa sorgusu ayrı çalışır; Include sadece sayfa sorgusuna eklenir (COUNT'a gereksiz JOIN eklenmez).
+        public async Task<(IReadOnlyList<T> Items, int TotalCount)> GetPagedAsync(Expression<Func<T, bool>>? predicate, Func<IQueryable<T>, IOrderedQueryable<T>> orderBy, int page, int pageSize, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet.AsNoTracking();
+            if (predicate != null)
+                query = query.Where(predicate);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            var items = await orderBy(query)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            return (items, totalCount);
+        }
+
         // FirstOrDefaultAsync: koşula uyan ilk kaydı döner. Include desteği vardır; navigation property gerektiğinde kullanılır.
         public async Task<T?> GetSingleAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
         {

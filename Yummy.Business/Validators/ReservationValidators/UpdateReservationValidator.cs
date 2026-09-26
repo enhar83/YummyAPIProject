@@ -46,6 +46,9 @@ namespace Yummy.Business.Validators.ReservationValidators
                     return false;
                 }).WithMessage("Bitiş saati başlangıçtan sonra olmalı, en az 30 dakika ve en fazla 4 saat sürmelidir. Ayrıca en geç 23:00'da bitebilir.");
 
+            RuleFor(x => x.Message)
+                .MaximumLength(500).WithMessage("Mesaj en fazla 500 karakter olabilir.");
+
             RuleFor(x => x.NumberOfGuests)
                 .GreaterThan(0).WithMessage("Kişi sayısı en az 1 olmalıdır.")
                 .LessThanOrEqualTo(20).WithMessage("Tek seferde en fazla 20 kişilik rezervasyon yapılabilir.");
