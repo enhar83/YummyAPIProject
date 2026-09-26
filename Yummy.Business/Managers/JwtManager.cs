@@ -13,6 +13,9 @@ namespace Yummy.Business.Managers
 {
     public class JwtManager : IJwtService
     {
+        // token içerisine eklenen security stamp claim'inin adı. Program.cs içerisindeki OnTokenValidated bu claim'i db'deki değer ile karşılaştırır.
+        public const string SecurityStampClaimType = "security_stamp";
+
         private readonly JwtSettings _jwtSettings;
 
         public JwtManager(IOptions<JwtSettings> jwtSettings)
@@ -35,6 +38,9 @@ namespace Yummy.Business.Managers
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
+
+            if (!string.IsNullOrEmpty(user.SecurityStamp)) // logout, şifre/e-posta/rol değişikliği gibi durumlarda stamp yenilenir ve bu token anında geçersiz olur.
+                claims.Add(new Claim(SecurityStampClaimType, user.SecurityStamp));
 
             if (!string.IsNullOrEmpty(user.Email))
                 claims.Add(new Claim(ClaimTypes.Email, user.Email));

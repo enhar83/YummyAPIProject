@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using FluentValidation;
@@ -136,6 +137,31 @@ builder.Services.AddAuthentication(options =>
 
     options.Events = new JwtBearerEvents
     {
+        // imzası ve süresi geçerli olan token için, içerisindeki security stamp db'deki güncel değer ile karşılaştırılır.
+        // logout, şifre/e-posta/rol değişikliğinde stamp yenilendiği için eski token'lar süreleri dolmadan reddedilir.
+        // sorgu primary key üzerinden yapılır ve sadece SecurityStamp kolonu okunur. Silinmiş kullanıcılar query filter nedeniyle bulunamaz ve reddedilir.
+        OnTokenValidated = async context =>
+        {
+            var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+            var tokenStamp = context.Principal?.FindFirstValue(JwtManager.SecurityStampClaimType);
+
+            if (!Guid.TryParse(userId, out var id) || string.IsNullOrEmpty(tokenStamp))
+            {
+                context.Fail("Token içerisinde kullanıcı veya security stamp bilgisi yok.");
+                return;
+            }
+
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<YummyDbContext>();
+            var currentStamp = await dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.Id == id)
+                .Select(u => u.SecurityStamp)
+                .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+            if (currentStamp == null || currentStamp != tokenStamp)
+                context.Fail("Oturum sonlandırılmış.");
+        },
+
         OnChallenge = context =>
         {
             context.HandleResponse();

@@ -135,7 +135,7 @@ namespace Yummy.Business.Managers
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
-            RevokeRefreshToken(user); // şifre sıfırlanınca açık oturumlar sonlandırılır. ResetPasswordAsync başarılı olursa kullanıcıyı güncellediği için bu değişiklik de kaydedilir.
+            RevokeSessions(user); // şifre sıfırlanınca açık oturumlar sonlandırılır. ResetPasswordAsync başarılı olursa kullanıcıyı güncellediği için bu değişiklik de kaydedilir.
 
             var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword); //  ForgotPasswordAsync içerisinde üretilen token burada kontrol edilir.
             if (!result.Succeeded)
@@ -151,7 +151,7 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
 
-            if (await _userManager.IsLockedOutAsync(user)) // çok sayıda hatalı denemeden sonra hesap geçici olarak kilitlenir (brute-force koruması).
+            if (await _userManager.IsLockedOutAsync(user)) // hatalı deneme koruması.
                 throw new LogicException("AccountLocked", "Çok fazla hatalı giriş denemesi yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
 
             var result = await _userManager.CheckPasswordAsync(user, dto.Password);
@@ -201,7 +201,7 @@ namespace Yummy.Business.Managers
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
-            RevokeRefreshToken(user); // şifre değişince diğer cihazlardaki oturumlar sonlandırılır. ChangePasswordAsync başarılı olursa bu değişiklik de kaydedilir.
+            RevokeSessions(user); // şifre değişince diğer cihazlardaki oturumlar sonlandırılır. ChangePasswordAsync başarılı olursa bu değişiklik de kaydedilir.
 
             var result = await _userManager.ChangePasswordAsync(user, dto.OldPassword, dto.NewPassword);
             if (!result.Succeeded)
@@ -274,7 +274,7 @@ namespace Yummy.Business.Managers
                     throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
             }
 
-            RevokeRefreshToken(user); // roller token içerisine gömüldüğü için kullanıcının yeni rollerle tekrar giriş yapması sağlanır.
+            RevokeSessions(user); // roller token içerisine gömüldüğü için kullanıcının yeni rollerle tekrar giriş yapması sağlanır.
 
             var result = await _userManager.AddToRolesAsync(user, rolesToAdd);
 
@@ -305,7 +305,7 @@ namespace Yummy.Business.Managers
                     throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
             }
 
-            RevokeRefreshToken(user); // kaldırılan rol, refresh ile yeniden üretilen token'lara taşınmasın diye oturum sonlandırılır.
+            RevokeSessions(user); // kaldırılan rol, refresh ile yeniden üretilen token'lara taşınmasın diye oturum sonlandırılır.
 
             var result = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
 
@@ -357,7 +357,7 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
 
-            RevokeRefreshToken(user); // refresh token silinir; access token kısa ömürlü olduğu için süresi dolunca oturum tamamen kapanır.
+            RevokeSessions(user); // refresh token silinir ve security stamp yenilenir; elde kalan access token'lar da anında geçersiz olur.
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
@@ -442,7 +442,7 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
 
-            RevokeRefreshToken(user); // e-posta değişince açık oturumlar sonlandırılır. ChangeEmailAsync başarılı olursa bu değişiklik de kaydedilir.
+            RevokeSessions(user); // e-posta değişince açık oturumlar sonlandırılır. ChangeEmailAsync başarılı olursa bu değişiklik de kaydedilir.
 
             var result = await _userManager.ChangeEmailAsync(user, dto.NewEmail, dto.Token);
 
@@ -463,11 +463,14 @@ namespace Yummy.Business.Managers
             return Convert.ToBase64String(randomNumber);
         }
 
-        // kullanıcının refresh token'ı silinir; mevcut access token süresi dolduğunda kullanıcı yeniden giriş yapmak zorunda kalır.
-        private static void RevokeRefreshToken(AppUser user)
+        // kullanıcının tüm oturumları sonlandırılır: refresh token silinir ve security stamp yenilenir.
+        // access token içerisindeki stamp, her istekte db'deki stamp ile karşılaştırıldığı için (Program.cs -> OnTokenValidated) eski access token'lar da anında geçersiz olur.
+        // değişiklikler, bu metottan sonra çağrılan UserManager işleminin (UpdateAsync, ChangePasswordAsync, AddToRolesAsync vb.) kullanıcıyı güncellemesiyle kaydedilir.
+        private static void RevokeSessions(AppUser user)
         {
             user.RefreshToken = null;
             user.RefreshTokenExpiryTime = null;
+            user.SecurityStamp = Convert.ToHexString(RandomNumberGenerator.GetBytes(20));
         }
         #endregion
 
