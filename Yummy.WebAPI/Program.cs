@@ -37,6 +37,10 @@ builder.Services.AddIdentityCore<AppUser>(options => {
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 6;
 
+    // e-posta benzersizliği Identity tarafından her kullanıcı oluşturma/güncelleme işleminde (ChangeEmailAsync dahil) kontrol edilir.
+    // FindByEmailAsync aynı e-postaya sahip birden fazla kullanıcı bulursa exception fırlattığı için bu ayar zorunludur.
+    options.User.RequireUniqueEmail = true;
+
     // brute-force saldırılarına karşı: 5 hatalı şifre denemesinden sonra hesap 5 dakika kilitlenir.
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 5;

@@ -459,8 +459,9 @@ namespace Yummy.Business.Managers
 
             if (user.UserName != dto.Username)
             {
-                var isUsernameExist = await _userManager.FindByNameAsync(dto.Username);
-                if (isUsernameExist != null)
+                // FindByNameAsync büyük/küçük harf duyarsız arar; kullanıcı sadece kendi adının harf büyüklüğünü değiştiriyorsa kendisini bulur, bu durum çakışma sayılmaz.
+                var userWithSameName = await _userManager.FindByNameAsync(dto.Username);
+                if (userWithSameName != null && userWithSameName.Id != user.Id)
                     throw new LogicException("UsernameTaken", "Bu kullanıcı adı zaten kullanılıyor. Lütfen başka bir tane seçin.");
             }
 
@@ -493,8 +494,8 @@ namespace Yummy.Business.Managers
             if (user.Email == dto.NewEmail)
                 throw new LogicException("SameEmail", "Yeni mail adresiniz eskisi ile aynı olamaz.");
 
-            var isEmailTaken = await _userManager.FindByEmailAsync(dto.NewEmail);
-            if (isEmailTaken != null)
+            var userWithSameEmail = await _userManager.FindByEmailAsync(dto.NewEmail); // büyük/küçük harf duyarsız arar.
+            if (userWithSameEmail != null && userWithSameEmail.Id != user.Id)
                 throw new LogicException("EmailTaken", "Bu mail adresi başka bir kullanıcıya ait.");
 
             var token = await _userManager.GenerateChangeEmailTokenAsync(user, dto.NewEmail);
@@ -518,6 +519,12 @@ namespace Yummy.Business.Managers
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            // talep ile onay arasında (token 1 gün geçerlidir) bu e-posta ile başka bir kullanıcı kayıt olmuş olabilir; onay anında tekrar kontrol edilir.
+            // RequireUniqueEmail ayarı da ChangeEmailAsync içerisinde aynı kontrolü yapar; bu kontrol kullanıcıya anlaşılır bir mesaj dönmek içindir.
+            var userWithSameEmail = await _userManager.FindByEmailAsync(dto.NewEmail);
+            if (userWithSameEmail != null && userWithSameEmail.Id != user.Id)
+                throw new LogicException("EmailTaken", "Bu mail adresi başka bir kullanıcıya ait.");
 
             RevokeRefreshToken(user); // security stamp'e burada dokunulmaz: e-posta token'ının doğrulaması stamp'e bağlıdır. ChangeEmailAsync başarılı olunca stamp'i kendisi yeniler.
 
