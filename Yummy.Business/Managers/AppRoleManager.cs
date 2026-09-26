@@ -8,6 +8,7 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Yummy.Core.Constants;
 using Yummy.Core.DTOs.AppRoleDTOs;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
@@ -52,12 +53,19 @@ namespace Yummy.Business.Managers
             if (role == null)
                 throw new LogicException("RoleNotFound", "Silinmek istenen rol sistemde bulunamadı.");
 
+            if (IsAdminRole(role))
+                throw new LogicException("ProtectedRole", "Admin rolü sistem rolüdür ve silinemez.");
+
+            var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name!); // rol silindikten sonra bu kullanıcılar bulunamayacağı için önceden alınır.
+
             var result = await _roleManager.DeleteAsync(role);
             if (!result.Succeeded)
             {
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("RoleDeleteFailed", errors);
             }
+
+            await RevokeSessionsAsync(usersInRole); // silinen rol token'larda kalmasın diye bu kullanıcıların oturumları sonlandırılır.
         }
 
         public async Task<IEnumerable<AppRoleListDto>> GetAllRolesAsync(CancellationToken cancellationToken = default)
@@ -92,12 +100,24 @@ namespace Yummy.Business.Managers
             if (existingRole == null)
                 throw new LogicException("RoleNotFound", "Güncellenmek istenen rol sistemde bulunamadı.");
 
-            if (existingRole.Name != dto.Name)
+            var isNameChanged = existingRole.Name != dto.Name;
+            var isDeactivated = !existingRole.IsDeleted && dto.IsDeleted;
+
+            // admin rolünün sadece açıklaması güncellenebilir; adı değiştirilemez ve pasife alınamaz.
+            if (IsAdminRole(existingRole) && (isNameChanged || isDeactivated))
+                throw new LogicException("ProtectedRole", "Admin rolü sistem rolüdür; adı değiştirilemez ve pasife alınamaz.");
+
+            if (isNameChanged)
             {
                 var roleWithSameName = await _roleManager.FindByNameAsync(dto.Name!);
                 if (roleWithSameName != null)
                     throw new LogicException("RoleExist", "Bu rol adı zaten sistemde başka bir rol tarafından kullanılmaktadır. Lütfen farklı bir isim belirleyin.");
             }
+
+            // rol adı token'a gömüldüğü için ad değişirse veya rol pasife alınırsa bu roldeki kullanıcıların oturumları sonlandırılır.
+            var usersToRevoke = isNameChanged || isDeactivated
+                ? await _userManager.GetUsersInRoleAsync(existingRole.Name!)
+                : new List<AppUser>();
 
             _mapper.Map(dto, existingRole);
 
@@ -106,6 +126,22 @@ namespace Yummy.Business.Managers
             {
                 var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
                 throw new LogicException("RoleUpdateFailed", errors);
+            }
+
+            await RevokeSessionsAsync(usersToRevoke);
+        }
+
+        private static bool IsAdminRole(AppRole role)
+            => string.Equals(role.Name, RoleNames.Admin, StringComparison.OrdinalIgnoreCase);
+
+        // kullanıcıların refresh token'ı silinir ve security stamp yenilenir; mevcut access token'lar anında geçersiz olur (Program.cs -> OnTokenValidated).
+        private async Task RevokeSessionsAsync(IEnumerable<AppUser> users)
+        {
+            foreach (var user in users)
+            {
+                user.RefreshToken = null;
+                user.RefreshTokenExpiryTime = null;
+                await _userManager.UpdateSecurityStampAsync(user); // stamp'i yeniler ve kullanıcıyı (refresh token değişikliğiyle birlikte) kaydeder.
             }
         }
     }

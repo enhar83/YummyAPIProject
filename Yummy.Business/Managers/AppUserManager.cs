@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Yummy.Core.Constants;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
@@ -27,6 +28,9 @@ namespace Yummy.Business.Managers
         private readonly IEmailService _emailService;
         private readonly IJwtService _jwtService;
         private readonly IWebHostEnvironment _environment;
+
+        private static readonly TimeSpan ActivationCodeLifetime = TimeSpan.FromMinutes(15); // aktivasyon kodunun geçerlilik süresi.
+        private static readonly TimeSpan ActivationCodeResendCooldown = TimeSpan.FromMinutes(2); // aynı kullanıcıya iki kod gönderimi arasındaki en kısa süre.
 
         public AppUserManager(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IMapper mapper, IEmailService emailService, IJwtService jwtService, IWebHostEnvironment environment)
         {
@@ -50,7 +54,7 @@ namespace Yummy.Business.Managers
 
             var user = _mapper.Map<AppUser>(dto);
 
-            user.ActivationCode = Guid.NewGuid().ToString().Substring(0, 6).ToUpper(); // kullanıcıya 6 haneli bir activation code oluşturulur.
+            SetNewActivationCode(user); // kullanıcıya süreli, 6 haneli bir activation code oluşturulur.
             user.EmailConfirmed = false; // email onayı yapılmadığı için EmailConfirmed propu default olarak false atanır.
 
             var result = await _userManager.CreateAsync(user, dto.Password);
@@ -61,21 +65,40 @@ namespace Yummy.Business.Managers
                 throw new LogicException("RegisterError", errors);
             }
 
-            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailActivationTemplate.html"); // email şablonu bulunur.
-            if (!File.Exists(templatePath))
+            await SendActivationEmailAsync(user); // kullanıcıya hesap doğrulama maili iletilir.
+        }
+
+        public async Task ResendActivationCodeAsync(ResendActivationCodeDto dto, CancellationToken cancellationToken = default)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Bu e-posta adresine ait bir kullanıcı bulunamadı.");
+
+            if (user.EmailConfirmed)
+                throw new LogicException("AlreadyVerified", "Bu hesap zaten daha önce doğrulanmış. Giriş yapabilirsiniz.");
+
+            // her istekte yeni mail gönderilmemesi için aynı kullanıcıya belirli aralıklarla kod gönderilir.
+            if (user.ActivationCodeSentAt.HasValue)
             {
-                throw new LogicException("TemplateError", "E-posta şablonu bulunamadı.");
+                var nextAllowedTime = user.ActivationCodeSentAt.Value.Add(ActivationCodeResendCooldown);
+                if (DateTime.UtcNow < nextAllowedTime)
+                {
+                    var remainingSeconds = (int)Math.Ceiling((nextAllowedTime - DateTime.UtcNow).TotalSeconds);
+                    throw new LogicException("ResendTooSoon", $"Yeni bir kod istemeden önce lütfen {remainingSeconds} saniye bekleyin.");
+                }
             }
-            var emailTemplate = await File.ReadAllTextAsync(templatePath); // email şablonu okunur.
-            
 
-            var mailBody = emailTemplate
-                .Replace("{{Name}}", user.Name)
-                .Replace("{{Surname}}", user.Surname)
-                .Replace("{{ActivationCode}}", user.ActivationCode);
+            // yeni kod eski kodu geçersiz kılar. Hatalı deneme sayacı bilinçli olarak sıfırlanmaz; aksi halde kod yenilenerek lockout atlatılabilir.
+            SetNewActivationCode(user);
 
-            var subject = "Yummy Restoran - Hesabınızı Doğrulayın";
-            await _emailService.SendEmailAsync(user.Email!, subject, mailBody); // kullanıcıya hesap doğrulama maili iletilir.
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(" | ", result.Errors.Select(e => e.Description));
+                throw new LogicException("ResendError", errors);
+            }
+
+            await SendActivationEmailAsync(user);
         }
 
         public async Task VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default)
@@ -101,10 +124,16 @@ namespace Yummy.Business.Managers
                 throw new LogicException("InvalidCode", "Girdiğiniz aktivasyon kodu hatalı veya süresi dolmuş. Lütfen kontrol edin.");
             }
 
+            // kod doğru ama süresi dolmuşsa kabul edilmez. Bitiş zamanı olmayan (bu özellikten önce üretilmiş) kodlar da süresi dolmuş sayılır.
+            if (user.ActivationCodeExpiryTime == null || user.ActivationCodeExpiryTime <= DateTime.UtcNow)
+                throw new LogicException("CodeExpired", "Aktivasyon kodunuzun süresi dolmuş. Lütfen yeni bir kod isteyin.");
+
             await _userManager.ResetAccessFailedCountAsync(user); // doğru kod girildiğinde hatalı deneme sayacı sıfırlanır.
 
             user.EmailConfirmed = true; // EmailConfirmed propu true'ya çekilir.
             user.ActivationCode = null; // ActivationCode propu null'a çekilir.
+            user.ActivationCodeExpiryTime = null;
+            user.ActivationCodeSentAt = null;
             var result = await _userManager.UpdateAsync(user); // kullanıcı güncellenir.
 
             if (!result.Succeeded)
@@ -333,6 +362,14 @@ namespace Yummy.Business.Managers
                     throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
             }
 
+            // sistemdeki son admin'in admin rolü kaldırılırsa kimse admin paneline erişemez.
+            if (rolesToRemove.Contains(RoleNames.Admin, StringComparer.OrdinalIgnoreCase))
+            {
+                var admins = await _userManager.GetUsersInRoleAsync(RoleNames.Admin); // silinmiş kullanıcılar query filter nedeniyle sayılmaz.
+                if (admins.Count <= 1)
+                    throw new LogicException("LastAdmin", "Sistemdeki son admin kullanıcısının admin rolü kaldırılamaz. Önce başka bir kullanıcıya admin rolü atayın.");
+            }
+
             RevokeSessions(user); // kaldırılan rol, refresh ile yeniden üretilen token'lara taşınmasın diye oturum sonlandırılır.
 
             var result = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
@@ -480,6 +517,35 @@ namespace Yummy.Business.Managers
                 throw new LogicException("ChangeEmailError", $"Doğrulama kodu hatalı veya süresi dolmuş. Detay: {errors}");
             }
         }
+
+        #region Aktivasyon Kodu İşlemleri
+        // kriptografik olarak güvenli, 6 haneli (büyük harf hex) bir kod üretilir ve geçerlilik süresi ile gönderim zamanı atanır.
+        private static void SetNewActivationCode(AppUser user)
+        {
+            var now = DateTime.UtcNow;
+            user.ActivationCode = Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
+            user.ActivationCodeSentAt = now;
+            user.ActivationCodeExpiryTime = now.Add(ActivationCodeLifetime);
+        }
+
+        private async Task SendActivationEmailAsync(AppUser user)
+        {
+            var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "EmailActivationTemplate.html"); // email şablonu bulunur.
+            if (!File.Exists(templatePath))
+                throw new LogicException("TemplateError", "E-posta şablonu bulunamadı.");
+
+            var emailTemplate = await File.ReadAllTextAsync(templatePath); // email şablonu okunur.
+
+            var mailBody = emailTemplate
+                .Replace("{{Name}}", user.Name)
+                .Replace("{{Surname}}", user.Surname)
+                .Replace("{{ActivationCode}}", user.ActivationCode)
+                .Replace("{{ExpiryMinutes}}", ((int)ActivationCodeLifetime.TotalMinutes).ToString());
+
+            var subject = "Yummy Restoran - Hesabınızı Doğrulayın";
+            await _emailService.SendEmailAsync(user.Email!, subject, mailBody);
+        }
+        #endregion
 
         #region Refresh Token İşlemleri
         // kısa ömürlü olan Access Token'ın süresi bittiğinde, kullanıcıdan tekrar şifre istemeden yeni bir Access Token alabilmek için kullanılan uzun ömürlü jetonu üretir.

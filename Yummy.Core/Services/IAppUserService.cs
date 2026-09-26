@@ -13,6 +13,7 @@ namespace Yummy.Core.Services
         Task RegisterAsync(AppUserRegisterDto dto, CancellationToken cancellationToken = default);
         Task<RefreshTokenResponseDto> LoginAsync(AppUserLoginDto dto, CancellationToken cancellationToken = default);
         Task VerifyEmailAsync(VerifyEmailDto dto, CancellationToken cancellationToken = default);
+        Task ResendActivationCodeAsync(ResendActivationCodeDto dto, CancellationToken cancellationToken = default);
         Task ForgotPasswordAsync(ForgotPasswordDto dto, CancellationToken cancellationToken = default);
         Task<IEnumerable<AppUserListDto>> GetAllUsersAsync(CancellationToken cancellationToken = default);
         Task<AppUserListDto> GetUserByIdAsync(Guid id, CancellationToken cancellationToken = default);

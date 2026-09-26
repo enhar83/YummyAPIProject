@@ -44,6 +44,14 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
             return Ok(new { message = "E-posta adresiniz başarıyla doğrulandı. Hesabınız aktif hale getirilmiştir, artık giriş yapabilirsiniz." });
         }
 
+        [HttpPost("resend-activation-code")]
+        [EnableRateLimiting(RateLimitPolicies.EmailSending)]
+        public async Task<IActionResult> ResendActivationCode([FromBody] ResendActivationCodeDto dto)
+        {
+            await _appUserService.ResendActivationCodeAsync(dto);
+            return Ok(new { message = "Yeni doğrulama kodu e-posta adresinize gönderildi." });
+        }
+
         [HttpPost("forgot-password")]
         [EnableRateLimiting(RateLimitPolicies.EmailSending)]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)

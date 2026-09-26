@@ -11,6 +11,8 @@ namespace Yummy.Entity
         public string? ImageUrl { get; set; }
         public bool IsDeleted { get; set; } = false;
         public string? ActivationCode { get; set; }
+        public DateTime? ActivationCodeExpiryTime { get; set; } // aktivasyon kodunun son geçerlilik zamanı (UTC). Bu tarihten sonra kod kabul edilmez.
+        public DateTime? ActivationCodeSentAt { get; set; } // kodun en son gönderildiği zaman (UTC). Yeniden gönderme için bekleme süresi buna göre hesaplanır.
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedDate { get; set; }
         public string? RefreshToken { get; set; } // jwt yapısında access token süresi dolduğunda yeni bir token almak için kullanılan refresh token değeri. ? ile nullable'dır; kullanıcı giriş yapmamışsa bu alan boştur.

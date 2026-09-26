@@ -38,5 +38,12 @@ namespace Yummy.WebAPI.Controllers.AdminControllers
             await _appUserService.AssignRolesToUserAsync(dto);
             return Ok(new { message = "Roller kullanıcıya başarıyla atandı." });
         }
+
+        [HttpPost("remove-roles")]
+        public async Task<IActionResult> RemoveRoles([FromBody] AppUserAssignRoleDto dto)
+        {
+            await _appUserService.RemoveRolesToUserAsync(dto);
+            return Ok(new { message = "Roller kullanıcıdan başarıyla kaldırıldı." });
+        }
     }
 }
