@@ -86,6 +86,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
 builder.Services.AddScoped<IChefService, ChefManager>();
+builder.Services.AddScoped<IContactService, ContactManager>();
 builder.Services.AddScoped<IProductService, ProductManager>();
 builder.Services.AddScoped<IFeatureService, FeatureManager>();
 builder.Services.AddScoped<IEmailService, EmailManager>();
