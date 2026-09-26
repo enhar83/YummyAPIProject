@@ -75,5 +75,16 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
 
             return Ok(new { message = "E-posta adresiniz başarıyla güncellendi." });
         }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+                throw new LogicException("InvalidId", "Kullanıcı kimliği alınamadı. Lütfen tekrar giriş yapın.");
+
+            await _appUserService.LogoutAsync(userId);
+            return Ok(new { message = "Başarıyla çıkış yapıldı." });
+        }
     }
 }

@@ -139,6 +139,8 @@ namespace Yummy.Business.Managers
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
 
+            RevokeRefreshToken(user); // şifre sıfırlanınca açık oturumlar sonlandırılır. ResetPasswordAsync başarılı olursa kullanıcıyı güncellediği için bu değişiklik de kaydedilir.
+
             var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword); //  ForgotPasswordAsync içerisinde üretilen token burada kontrol edilir.
             if (!result.Succeeded)
             {
@@ -151,14 +153,27 @@ namespace Yummy.Business.Managers
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if (user == null)
-                throw new LogicException("UserNotFound", "Kullanıcı adı veya şifre yanlış.");
+                throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
 
-            if (!user.EmailConfirmed)
-                throw new LogicException("EmailNotVerified", "Lütfen giriş yapmadan önce e-posta adresinize gönderilen kod ile hesabınızı doğrulayın.");
+            if (await _userManager.IsLockedOutAsync(user)) // çok sayıda hatalı denemeden sonra hesap geçici olarak kilitlenir (brute-force koruması).
+                throw new LogicException("AccountLocked", "Çok fazla hatalı giriş denemesi yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
 
             var result = await _userManager.CheckPasswordAsync(user, dto.Password);
             if (!result)
+            {
+                await _userManager.AccessFailedAsync(user); // hatalı deneme sayacı artırılır, limit aşılırsa hesap kilitlenir.
+
+                if (await _userManager.IsLockedOutAsync(user))
+                    throw new LogicException("AccountLocked", "Çok fazla hatalı giriş denemesi yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
+
                 throw new LogicException("InvalidCredentials", "Kullanıcı adı veya şifre yanlış.");
+            }
+
+            // e-posta doğrulama kontrolü şifre kontrolünden sonra yapılır; böylece şifreyi bilmeyen biri e-postanın sistemde kayıtlı olup olmadığını öğrenemez.
+            if (!user.EmailConfirmed)
+                throw new LogicException("EmailNotVerified", "Lütfen giriş yapmadan önce e-posta adresinize gönderilen kod ile hesabınızı doğrulayın.");
+
+            await _userManager.ResetAccessFailedCountAsync(user); // başarılı girişte hatalı deneme sayacı sıfırlanır.
 
             var roles = await _userManager.GetRolesAsync(user); // jwt'ye gömülmek için kullanıcı roller alınır.
 
@@ -189,6 +204,8 @@ namespace Yummy.Business.Managers
             var isSameAsOldPassword = await _userManager.CheckPasswordAsync(user, dto.NewPassword);
             if (isSameAsOldPassword)
                 throw new LogicException("SamePasswordError", "Yeni şifreniz, eski şifrenizle aynı olamaz. Lütfen farklı bir şifre belirleyin.");
+
+            RevokeRefreshToken(user); // şifre değişince diğer cihazlardaki oturumlar sonlandırılır. ChangePasswordAsync başarılı olursa bu değişiklik de kaydedilir.
 
             var result = await _userManager.ChangePasswordAsync(user, dto.OldPassword, dto.NewPassword);
             if (!result.Succeeded)
@@ -261,6 +278,8 @@ namespace Yummy.Business.Managers
                     throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
             }
 
+            RevokeRefreshToken(user); // roller token içerisine gömüldüğü için kullanıcının yeni rollerle tekrar giriş yapması sağlanır.
+
             var result = await _userManager.AddToRolesAsync(user, rolesToAdd);
 
             if (!result.Succeeded)
@@ -290,6 +309,8 @@ namespace Yummy.Business.Managers
                     throw new LogicException("RoleNotFound", $"'{roleName}' isminde bir rol sistemde bulunmamaktadır.");
             }
 
+            RevokeRefreshToken(user); // kaldırılan rol, refresh ile yeniden üretilen token'lara taşınmasın diye oturum sonlandırılır.
+
             var result = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
 
             if (!result.Succeeded)
@@ -301,9 +322,15 @@ namespace Yummy.Business.Managers
 
         public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default)
         {
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.RefreshToken == dto.RefreshToken);
+            // gönderilen access token'ın imzası doğrulanır; token bizim tarafımızdan üretilmemişse veya değiştirilmişse null döner.
+            var userIdFromToken = await _jwtService.GetUserIdFromExpiredTokenAsync(dto.AccessToken);
+            if (userIdFromToken == null)
+                throw new LogicException("InvalidToken", "Geçersiz erişim anahtarı.");
 
-            if (user == null)
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.RefreshToken == dto.RefreshToken, cancellationToken);
+
+            // refresh token, access token'ın ait olduğu kullanıcıya ait olmalıdır.
+            if (user == null || user.Id.ToString() != userIdFromToken)
                 throw new LogicException("InvalidToken", "Geçersiz yenileme anahtarı.");
 
             if (user.RefreshTokenExpiryTime <= DateTime.Now)
@@ -326,6 +353,19 @@ namespace Yummy.Business.Managers
                 RefreshToken = newRefreshToken,
                 AccessTokenExpiryTime = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiration)
             };
+        }
+
+        public async Task LogoutAsync(string userId, CancellationToken cancellationToken = default)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
+
+            RevokeRefreshToken(user); // refresh token silinir; access token kısa ömürlü olduğu için süresi dolunca oturum tamamen kapanır.
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+                throw new LogicException("LogoutError", "Çıkış yapılırken oturum sonlandırılamadı.");
         }
 
         public async Task<GetAppUserProfileDto> GetUserProfileAsync(string userId, CancellationToken cancellationToken = default)
@@ -406,6 +446,8 @@ namespace Yummy.Business.Managers
             if (user == null)
                 throw new LogicException("UserNotFound", "Kullanıcı bulunamadı.");
 
+            RevokeRefreshToken(user); // e-posta değişince açık oturumlar sonlandırılır. ChangeEmailAsync başarılı olursa bu değişiklik de kaydedilir.
+
             var result = await _userManager.ChangeEmailAsync(user, dto.NewEmail, dto.Token);
 
             if (!result.Succeeded)
@@ -423,6 +465,13 @@ namespace Yummy.Business.Managers
             using var rng = RandomNumberGenerator.Create();
             rng.GetBytes(randomNumber);
             return Convert.ToBase64String(randomNumber);
+        }
+
+        // kullanıcının refresh token'ı silinir; mevcut access token süresi dolduğunda kullanıcı yeniden giriş yapmak zorunda kalır.
+        private static void RevokeRefreshToken(AppUser user)
+        {
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
         }
         #endregion
 

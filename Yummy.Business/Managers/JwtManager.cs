@@ -59,5 +59,31 @@ namespace Yummy.Business.Managers
             var handler = new JsonWebTokenHandler(); // .NET standartlarına uygun olan JsonWebTokenHandler kullanılarak token string formatında oluşturulup döndürülür.
             return handler.CreateToken(tokenDescriptor);
         }
+
+        // refresh işleminde gönderilen (süresi dolmuş olabilecek) access token'ın gerçekten bizim tarafımızdan imzalandığı doğrulanır ve içerisindeki kullanıcı id'si döndürülür.
+        // süre kontrolü bilinçli olarak kapatılır; imza, issuer, audience ve algoritma kontrolleri yapılmaya devam eder. Token geçersizse null döner.
+        public async Task<string?> GetUserIdFromExpiredTokenAsync(string accessToken)
+        {
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = false,
+                ValidateIssuerSigningKey = true,
+
+                ValidIssuer = _jwtSettings.Issuer,
+                ValidAudience = _jwtSettings.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecurityKey)),
+                ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 }
+            };
+
+            var handler = new JsonWebTokenHandler();
+            var result = await handler.ValidateTokenAsync(accessToken, validationParameters);
+
+            if (!result.IsValid)
+                return null;
+
+            return result.ClaimsIdentity.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace Yummy.Core.Services
         Task AssignRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default);
         Task RemoveRolesToUserAsync(AppUserAssignRoleDto dto, CancellationToken cancellationToken = default);
         Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto dto, CancellationToken cancellationToken = default);
+        Task LogoutAsync(string userId, CancellationToken cancellationToken = default);
         Task<GetAppUserProfileDto> GetUserProfileAsync(string userId, CancellationToken cancellationToken = default);
         Task UpdateAppUserAsync(string userId, UpdateAppUserDto dto, CancellationToken cancellationToken = default);
         Task EmailChangeRequestAsync(string userId, ChangeEmailRequestDto dto, CancellationToken cancellationToken = default);

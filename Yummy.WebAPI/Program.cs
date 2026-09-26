@@ -33,10 +33,15 @@ builder.Services.AddDbContext<YummyDbContext>(options =>
 builder.Services.AddIdentityCore<AppUser>(options => {
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 6;
+
+    // brute-force saldırılarına karşı: 5 hatalı şifre denemesinden sonra hesap 5 dakika kilitlenir.
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 })
 .AddRoles<AppRole>()
 .AddEntityFrameworkStores<YummyDbContext>()
-.AddDefaultTokenProviders(); 
+.AddDefaultTokenProviders();
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -46,7 +51,7 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Yummy API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Ltfen 'Bearer' yazp boluk braktktan sonra Token'nz giriniz.\r\n\r\nrnek: \"Bearer eyJhbGci...\"",
+        Description = "JWT Authorization header using the Bearer scheme. \r\n\r\n Lütfen 'Bearer' yazıp boşluk bıraktıktan sonra Token'ınızı giriniz.\r\n\r\nÖrnek: \"Bearer eyJhbGci...\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -74,7 +79,7 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("TokenSettings"));
 
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //opengeneric kullanmdr. yani hangi tip istenirse onun iin otomatik olarak bir GenericRepository<T> olutur demektir. 
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>)); //open generic kullanımıdır. yani hangi tip istenirse onun için otomatik olarak bir GenericRepository<T> oluşur demektir.
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<ICategoryService, CategoryManager>();
@@ -96,7 +101,20 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddMaps(typeof(Yummy.Business.Mapping.CategoryMapping).Assembly);
 });
 
-var jwtSettings = builder.Configuration.GetSection("TokenSettings").Get<JwtSettings>();
+// TokenSettings secrets.json içerisinde tutulur ve secrets.json sadece Development ortamında yüklenir.
+// Diğer ortamlarda ayarlar eksikse uygulama anlaşılır bir hata mesajıyla açılışta durdurulur.
+var jwtSettings = builder.Configuration.GetSection("TokenSettings").Get<JwtSettings>()
+    ?? throw new InvalidOperationException("'TokenSettings' ayarları bulunamadı. Development ortamında secrets.json, diğer ortamlarda environment variable (örn. TokenSettings__SecurityKey) üzerinden tanımlanmalıdır.");
+
+if (string.IsNullOrWhiteSpace(jwtSettings.Issuer) || string.IsNullOrWhiteSpace(jwtSettings.Audience))
+    throw new InvalidOperationException("'TokenSettings:Issuer' ve 'TokenSettings:Audience' alanları boş olamaz.");
+
+if (string.IsNullOrEmpty(jwtSettings.SecurityKey) || Encoding.UTF8.GetByteCount(jwtSettings.SecurityKey) < 32)
+    throw new InvalidOperationException("'TokenSettings:SecurityKey' HS256 için en az 32 byte (256 bit) uzunluğunda olmalıdır.");
+
+if (jwtSettings.AccessTokenExpiration <= 0)
+    throw new InvalidOperationException("'TokenSettings:AccessTokenExpiration' 0'dan büyük bir dakika değeri olmalıdır.");
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -107,11 +125,11 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
-        ValidateAudience = true, 
-        ValidateLifetime = true, 
-        ValidateIssuerSigningKey = true, 
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
 
-        ValidIssuer = jwtSettings!.Issuer,
+        ValidIssuer = jwtSettings.Issuer,
         ValidAudience = jwtSettings.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecurityKey)),
         ClockSkew = TimeSpan.Zero
@@ -126,7 +144,7 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = 401;
             context.Response.ContentType = "application/json";
 
-            var result = JsonSerializer.Serialize(new { message = "Ltfen ilem yapabilmek iin sisteme giri yapnz." });
+            var result = JsonSerializer.Serialize(new { message = "Lütfen işlem yapabilmek için sisteme giriş yapınız." });
             return context.Response.WriteAsync(result);
         },
 
@@ -135,13 +153,13 @@ builder.Services.AddAuthentication(options =>
             context.Response.StatusCode = 403;
             context.Response.ContentType = "application/json";
 
-            var result = JsonSerializer.Serialize(new { message = "Bu alana eriim salamak iin gerekli yetkiye sahip deilsiniz." });
+            var result = JsonSerializer.Serialize(new { message = "Bu alana erişim sağlamak için gerekli yetkiye sahip değilsiniz." });
             return context.Response.WriteAsync(result);
         }
     };
 });
 
-builder.Services.AddFluentValidationAutoValidation(); 
+builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssembly(typeof(Yummy.Business.Validators.CategoryValidators.CategoryCreateValidator).Assembly);
 
 var app = builder.Build();
@@ -153,13 +171,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseStaticFiles(); //IWebHostEnvironment'in almas iin. 
+app.UseStaticFiles(); //IWebHostEnvironment'in çalışması için.
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseMiddleware<GlobalExceptionMiddleware>(); 
+app.UseMiddleware<GlobalExceptionMiddleware>();
 app.MapControllers();
 
 app.Run();
