@@ -11,7 +11,7 @@ namespace Yummy.Tests.Infrastructure
     {
         protected static readonly Guid SmallTableId = Guid.NewGuid();  // 2 kişilik
         protected static readonly Guid MediumTableId = Guid.NewGuid(); // 4 kişilik
-        protected static readonly DateTime FutureDay = DateTime.Today.AddDays(3);
+        protected static readonly DateTime FutureDay = Now.Date.AddDays(3);
 
         private readonly SqliteConnection _connection;
         protected override DbContextOptions<YummyDbContext> Options { get; }

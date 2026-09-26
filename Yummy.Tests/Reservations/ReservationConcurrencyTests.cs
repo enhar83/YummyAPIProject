@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Yummy.Business.Managers;
 using Yummy.Core.Exceptions;
 using Yummy.Data.Context;
 using Yummy.Entity;
@@ -13,7 +14,8 @@ namespace Yummy.Tests.Reservations
     public class ReservationConcurrencyTests : TestContext, IAsyncLifetime
     {
         private const int ConcurrentRequests = 10;
-        private static readonly DateTime FutureDay = DateTime.Today.AddDays(3);
+        private static readonly DateTime FutureDay = Now.Date.AddDays(3);
+        private readonly Guid[] _extraUsers = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToArray();
 
         private readonly string _connectionString;
         private bool _isAvailable;
@@ -34,6 +36,7 @@ namespace Yummy.Tests.Reservations
                 await using var db = CreateDbContext();
                 await db.Database.EnsureCreatedAsync();
                 SeedUsers(db);
+                db.Users.AddRange(_extraUsers.Select(id => new AppUser { Id = id, UserName = $"user-{id:N}", Name = "Ek", Surname = "Kullanıcı", Email = $"{id:N}@test.com" }));
                 db.DiningTables.Add(new DiningTable { TableNo = "Tek Masa", Capacity = 2 });
                 await db.SaveChangesAsync();
                 _isAvailable = true;
@@ -86,16 +89,41 @@ namespace Yummy.Tests.Reservations
         {
             Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
 
-            var tasks = Enumerable.Range(1, 5).Select(day => Task.Run(async () =>
+            var tasks = Enumerable.Range(0, 5).Select(i => Task.Run(async () =>
             {
                 await using var db = CreateDbContext();
-                await CreateReservationManager(db).AddReservationAsync(UserA.ToString(), CreateDto(DateTime.Today.AddDays(day)));
+                await CreateReservationManager(db).AddReservationAsync(_extraUsers[i].ToString(), CreateDto(Today.AddDays(i + 1)));
             }));
 
             await Task.WhenAll(tasks);
 
             await using var check = CreateDbContext();
             Assert.Equal(5, await check.Reservations.CountAsync());
+        }
+
+        [SkippableFact]
+        public async Task ConcurrentBookingsBySameUserForDifferentDays_CannotExceedActiveLimit()
+        {
+            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+
+            // farklı günler farklı gün kilitlerine düşer; limitin aşılmamasını kullanıcı kilidi sağlar.
+            using var startSignal = new ManualResetEventSlim(false);
+            var tasks = Enumerable.Range(1, 6).Select(day => Task.Run(async () =>
+            {
+                startSignal.Wait();
+                await using var db = CreateDbContext();
+                await CreateReservationManager(db).AddReservationAsync(UserA.ToString(), CreateDto(Today.AddDays(day)));
+            })).ToList();
+
+            startSignal.Set();
+            var results = await Task.WhenAll(tasks.Select(async t =>
+            {
+                try { await t; return (Exception?)null; }
+                catch (Exception ex) { return ex; }
+            }));
+
+            Assert.Equal(ReservationManager.MaxActiveReservationsPerUser, results.Count(r => r == null));
+            Assert.All(results.Where(r => r != null), ex => Assert.Equal("ReservationLimit", Assert.IsType<LogicException>(ex).PropertyName));
         }
     }
 }

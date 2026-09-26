@@ -60,7 +60,7 @@ namespace Yummy.Tests.DiningTables
                 db.Reservations.Add(new Yummy.Entity.Reservation
                 {
                     Name = "Eski", Surname = "Kayıt", Email = "a@test.com", Phone = "1", Message = "",
-                    ReservationDate = DateTime.Today.AddDays(-10), ReservationTime = "19:00", ReservationEndTime = "21:00",
+                    ReservationDate = Today.AddDays(-10), ReservationTime = "19:00", ReservationEndTime = "21:00",
                     NumberOfGuests = 2, ReservationStatus = ReservationStatus.Completed, AppUserId = UserA, DiningTableId = SmallTableId
                 });
                 await db.SaveChangesAsync();

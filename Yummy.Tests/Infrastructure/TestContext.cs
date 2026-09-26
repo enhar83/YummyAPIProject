@@ -20,7 +20,12 @@ namespace Yummy.Tests.Infrastructure
         protected static readonly IMapper Mapper = new MapperConfiguration(
             cfg => cfg.AddMaps(typeof(ReservationManager).Assembly), NullLoggerFactory.Instance).CreateMapper();
 
+        // testler sabit bir anda (restoranın yerel saatiyle) çalışır. gerektiğinde Clock.SetLocalNow/Advance ile değiştirilir.
+        protected static readonly DateTime Now = new(2030, 6, 15, 12, 0, 0);
+        protected static DateTime Today => Now.Date;
+
         protected readonly FakeEmailService Email = new();
+        protected readonly TestTimeProvider Clock = new(Now);
 
         static TestContext()
         {
@@ -33,10 +38,10 @@ namespace Yummy.Tests.Infrastructure
         protected YummyDbContext CreateDbContext() => new(Options);
 
         protected ReservationManager CreateReservationManager(YummyDbContext db) =>
-            new(new GenericRepository<Reservation>(db), new GenericRepository<DiningTable>(db), new UnitOfWork(db), Mapper, Email, NullLogger<ReservationManager>.Instance);
+            new(new GenericRepository<Reservation>(db), new GenericRepository<DiningTable>(db), new UnitOfWork(db), Mapper, Email, NullLogger<ReservationManager>.Instance, Clock);
 
-        protected static DiningTableManager CreateDiningTableManager(YummyDbContext db) =>
-            new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper);
+        protected DiningTableManager CreateDiningTableManager(YummyDbContext db) =>
+            new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper, Clock);
 
         protected static void SeedUsers(YummyDbContext db)
         {

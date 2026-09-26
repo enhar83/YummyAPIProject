@@ -32,7 +32,7 @@ namespace Yummy.Tests.Reservations
         [Fact]
         public async Task Cancel_LessThanTwoHoursBefore_ThrowsTooLate()
         {
-            var id = await InsertReservationAsync(DateTime.Now.AddMinutes(100));
+            var id = await InsertReservationAsync(Now.AddMinutes(100));
 
             await using var db = CreateDbContext();
             var ex = await Assert.ThrowsAsync<LogicException>(() => CreateReservationManager(db).CancelReservationAsync(UserA.ToString(), id));
@@ -42,7 +42,7 @@ namespace Yummy.Tests.Reservations
         [Fact]
         public async Task Cancel_MoreThanTwoHoursBefore_Succeeds()
         {
-            var id = await InsertReservationAsync(DateTime.Now.AddMinutes(150));
+            var id = await InsertReservationAsync(Now.AddMinutes(150));
 
             await using (var db = CreateDbContext())
                 await CreateReservationManager(db).CancelReservationAsync(UserA.ToString(), id);
@@ -54,7 +54,7 @@ namespace Yummy.Tests.Reservations
         [Fact]
         public async Task Cancel_CompletedReservation_ThrowsNotAllowed()
         {
-            var id = await InsertReservationAsync(DateTime.Now.AddDays(-1), ReservationStatus.Completed);
+            var id = await InsertReservationAsync(Now.AddDays(-1), ReservationStatus.Completed);
 
             await using var db = CreateDbContext();
             var ex = await Assert.ThrowsAsync<LogicException>(() => CreateReservationManager(db).CancelReservationAsync(UserA.ToString(), id));
@@ -96,9 +96,9 @@ namespace Yummy.Tests.Reservations
         [Fact]
         public async Task TodaysReservations_IncludesTodayOnly_EvenWithLegacyTimeComponent()
         {
-            await InsertReservationAsync(DateTime.Today.AddHours(20));                                           // normal kayıt
-            await InsertReservationAsync(DateTime.Today.AddHours(21), storedDate: DateTime.Today.AddHours(15));  // saat kısmı olan eski kayıt
-            await InsertReservationAsync(DateTime.Today.AddDays(1).AddHours(20));                                // yarın
+            await InsertReservationAsync(Today.AddHours(20));                                           // normal kayıt
+            await InsertReservationAsync(Today.AddHours(21), storedDate: Today.AddHours(15));  // saat kısmı olan eski kayıt
+            await InsertReservationAsync(Today.AddDays(1).AddHours(20));                                // yarın
 
             await using var db = CreateDbContext();
             var todays = await CreateReservationManager(db).GetTodaysReservationListAsync();
@@ -108,16 +108,16 @@ namespace Yummy.Tests.Reservations
         [Fact]
         public void Validator_LastAllowedDayWithTimeComponent_IsValid()
         {
-            var dto = CreateDto(DateTime.Today.AddMonths(1).AddHours(19));
-            var result = new CreateReservationValidator().Validate(dto);
+            var dto = CreateDto(Today.AddMonths(1).AddHours(19));
+            var result = new CreateReservationValidator(Clock).Validate(dto);
             Assert.DoesNotContain(result.Errors, e => e.PropertyName == nameof(ReservationCreateDto.ReservationDate));
         }
 
         [Fact]
         public void Validator_DayAfterLastAllowedDay_IsInvalid()
         {
-            var dto = CreateDto(DateTime.Today.AddMonths(1).AddDays(1));
-            var result = new CreateReservationValidator().Validate(dto);
+            var dto = CreateDto(Today.AddMonths(1).AddDays(1));
+            var result = new CreateReservationValidator(Clock).Validate(dto);
             Assert.Contains(result.Errors, e => e.PropertyName == nameof(ReservationCreateDto.ReservationDate));
         }
 
