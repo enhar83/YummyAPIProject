@@ -2,13 +2,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
+using Yummy.WebAPI.RateLimiting;
 
 namespace Yummy.WebAPI.Controllers.PublicControllers
 {
     [Route("api/auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)] // tüm auth endpoint'leri için IP bazlı istek sınırı. E-posta gönderenler aşağıda daha sıkı policy ile ezilir.
     [ApiController]
     public class AuthController : ControllerBase
     {
@@ -20,6 +23,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting(RateLimitPolicies.EmailSending)]
         public async Task<IActionResult> Register([FromBody] AppUserRegisterDto dto)
         {
             await _appUserService.RegisterAsync(dto);
@@ -41,6 +45,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPost("forgot-password")]
+        [EnableRateLimiting(RateLimitPolicies.EmailSending)]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
         {
             await _appUserService.ForgotPasswordAsync(dto);

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -19,6 +20,7 @@ using Yummy.Data.Context;
 using Yummy.Data.Repositories;
 using Yummy.Entity;
 using Yummy.WebAPI.Middlewares;
+using Yummy.WebAPI.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -184,6 +186,44 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// auth ve e-posta gönderen endpoint'lere IP bazlı istek sınırı konur (brute-force ve e-posta spam'ine karşı).
+// ⚠️ uygulama reverse proxy (nginx, IIS ARR, load balancer vb.) arkasında çalışacaksa gerçek istemci IP'si için ForwardedHeaders yapılandırılmalıdır;
+// aksi halde tüm istekler proxy IP'sinden geliyormuş gibi görünür ve aynı limiti paylaşır.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
+    options.AddPolicy(RateLimitPolicies.EmailSending, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(15),
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.ContentType = "application/json";
+
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
+
+        var result = JsonSerializer.Serialize(new { message = "Çok fazla istek gönderdiniz. Lütfen biraz bekleyip tekrar deneyin." });
+        await context.HttpContext.Response.WriteAsync(result, cancellationToken);
+    };
+});
+
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssembly(typeof(Yummy.Business.Validators.CategoryValidators.CategoryCreateValidator).Assembly);
 
@@ -198,6 +238,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles(); //IWebHostEnvironment'in çalışması için.
 app.UseHttpsRedirection();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

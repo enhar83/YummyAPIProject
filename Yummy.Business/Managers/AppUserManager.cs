@@ -87,8 +87,21 @@ namespace Yummy.Business.Managers
             if (user.EmailConfirmed)
                 throw new LogicException("AlreadyVerified", "Bu hesap zaten daha önce doğrulanmış. Giriş yapabilirsiniz.");
 
+            // aktivasyon kodunun deneme-yanılma ile bulunmasını engellemek için hatalı denemeler login ile aynı lockout sayacına yazılır.
+            if (await _userManager.IsLockedOutAsync(user))
+                throw new LogicException("AccountLocked", "Çok fazla hatalı deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
+
             if (user.ActivationCode != dto.ActivationCode.Trim().ToUpper())
+            {
+                await _userManager.AccessFailedAsync(user); // limit aşılırsa hesap kilitlenir.
+
+                if (await _userManager.IsLockedOutAsync(user))
+                    throw new LogicException("AccountLocked", "Çok fazla hatalı deneme yapıldı. Lütfen birkaç dakika sonra tekrar deneyin.");
+
                 throw new LogicException("InvalidCode", "Girdiğiniz aktivasyon kodu hatalı veya süresi dolmuş. Lütfen kontrol edin.");
+            }
+
+            await _userManager.ResetAccessFailedCountAsync(user); // doğru kod girildiğinde hatalı deneme sayacı sıfırlanır.
 
             user.EmailConfirmed = true; // EmailConfirmed propu true'ya çekilir.
             user.ActivationCode = null; // ActivationCode propu null'a çekilir.

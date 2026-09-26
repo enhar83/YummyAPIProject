@@ -2,9 +2,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Yummy.Core.DTOs.AppUserDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Core.Services;
+using Yummy.WebAPI.RateLimiting;
 
 namespace Yummy.WebAPI.Controllers.PublicControllers
 {
@@ -20,6 +22,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPost("change-password")]
+        [EnableRateLimiting(RateLimitPolicies.Auth)]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -53,6 +56,7 @@ namespace Yummy.WebAPI.Controllers.PublicControllers
         }
 
         [HttpPost("request-email-change")]
+        [EnableRateLimiting(RateLimitPolicies.EmailSending)]
         public async Task<IActionResult> RequestEmailChange(ChangeEmailRequestDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
