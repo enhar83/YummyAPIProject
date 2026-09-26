@@ -268,6 +268,7 @@ namespace Yummy.Tests.Reservations
             Assert.Equal(10, first.Items.Count);
             Assert.Equal(Today, first.Items[0].ReservationDate);
             Assert.Equal("Masa 1", first.Items[0].TableNo); // DiningTable include edilir
+            Assert.Equal("a@test.com", first.Items[0].Email); // admin müşterinin e-postasını görür
 
             var last = await manager.GetAllReservationsAsync(new PaginationQueryDto { Page = 3, PageSize = 10 });
             Assert.Equal(5, last.Items.Count);
