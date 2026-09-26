@@ -33,7 +33,7 @@ namespace Yummy.Tests.Infrastructure
         protected YummyDbContext CreateDbContext() => new(Options);
 
         protected ReservationManager CreateReservationManager(YummyDbContext db) =>
-            new(new GenericRepository<Reservation>(db), new GenericRepository<DiningTable>(db), new UnitOfWork(db), Mapper, Email);
+            new(new GenericRepository<Reservation>(db), new GenericRepository<DiningTable>(db), new UnitOfWork(db), Mapper, Email, NullLogger<ReservationManager>.Instance);
 
         protected static DiningTableManager CreateDiningTableManager(YummyDbContext db) =>
             new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper);

@@ -1,4 +1,7 @@
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.DiningTableDTOs;
+using Yummy.Entity;
 using Yummy.Core.Exceptions;
 using Yummy.Entity.Enums;
 using Yummy.Tests.Infrastructure;
@@ -70,6 +73,76 @@ namespace Yummy.Tests.DiningTables
             var tables = await CreateDiningTableManager(check).GetAllAsync();
             Assert.False(tables.Single(t => t.DiningTableId == SmallTableId).IsActive); // admin pasif masayı görmeye devam eder
             Assert.Single(await CreateReservationManager(check).SeeMyPastReservationsAsync(UserA.ToString()));
+        }
+
+        [Fact]
+        public async Task Create_WithoutIsActiveInRequest_TableIsActive()
+        {
+            var dto = JsonSerializer.Deserialize<DiningTableCreateDto>("""{ "tableNo": "Masa 9", "capacity": 4 }""", new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+            await using (var db = CreateDbContext())
+                await CreateDiningTableManager(db).AddAsync(dto);
+
+            await using var check = CreateDbContext();
+            Assert.True(check.DiningTables.Single(t => t.TableNo == "Masa 9").IsActive);
+        }
+
+        [Theory]
+        [InlineData("Masa 1")]
+        [InlineData("  Masa 1  ")]
+        public async Task Create_WithExistingTableNo_Throws(string tableNo)
+        {
+            await using var db = CreateDbContext();
+            var ex = await Assert.ThrowsAsync<LogicException>(() =>
+                CreateDiningTableManager(db).AddAsync(new DiningTableCreateDto { TableNo = tableNo, Capacity = 2 }));
+            Assert.Equal("TableNo", ex.PropertyName);
+        }
+
+        [Fact]
+        public async Task Update_ToAnotherTablesNo_Throws()
+        {
+            await using var db = CreateDbContext();
+            var ex = await Assert.ThrowsAsync<LogicException>(() => CreateDiningTableManager(db).UpdateAsync(new DiningTableUpdateDto
+            {
+                DiningTableId = MediumTableId, TableNo = "Masa 1", Capacity = 4, IsActive = true
+            }));
+            Assert.Equal("TableNo", ex.PropertyName);
+        }
+
+        [Fact]
+        public async Task DuplicateTableNo_IsRejectedByDatabaseIndex()
+        {
+            await using var db = CreateDbContext();
+            db.DiningTables.Add(new DiningTable { TableNo = "Masa 1", Capacity = 2 });
+            await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        }
+
+        [Fact]
+        public async Task ReduceCapacity_BelowActiveReservation_Throws()
+        {
+            await BookAsync(UserA, FutureDay, guests: 4); // MediumTable (4 kişilik)
+
+            await using var db = CreateDbContext();
+            var ex = await Assert.ThrowsAsync<LogicException>(() => CreateDiningTableManager(db).UpdateAsync(new DiningTableUpdateDto
+            {
+                DiningTableId = MediumTableId, TableNo = "Masa 2", Capacity = 3, IsActive = true
+            }));
+            Assert.Equal("CapacityConflict", ex.PropertyName);
+        }
+
+        [Fact]
+        public async Task ReduceCapacity_WhenReservationsStillFit_Succeeds()
+        {
+            await BookAsync(UserA, FutureDay, guests: 3); // MediumTable (4 kişilik)
+
+            await using (var db = CreateDbContext())
+                await CreateDiningTableManager(db).UpdateAsync(new DiningTableUpdateDto
+                {
+                    DiningTableId = MediumTableId, TableNo = "Masa 2", Capacity = 3, IsActive = true
+                });
+
+            await using var check = CreateDbContext();
+            Assert.Equal(3, check.DiningTables.Single(t => t.DiningTableId == MediumTableId).Capacity);
         }
 
         [Fact]
