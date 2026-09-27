@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Yummy.Business.BackgroundServices;
+using Yummy.Business.Seeding;
 using Yummy.Business.Time;
 using Yummy.Business.Managers;
 using Yummy.Core.IRepositories;
@@ -260,6 +261,13 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssembly(typeof(Yummy.Business.Validators.CategoryValidators.CategoryCreateValidator).Assembly);
 
 var app = builder.Build();
+
+// yetkilendirme sistem rollerinin isimlerine bağlı olduğu için (Admin, Employee, Chef, Customer) eksik olanlar açılışta oluşturulur.
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
+    await SystemRoleSeeder.SeedAsync(roleManager);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

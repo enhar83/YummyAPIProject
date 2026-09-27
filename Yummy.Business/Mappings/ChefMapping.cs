@@ -14,7 +14,9 @@ namespace Yummy.Business.Mappings
     {
         public ChefMapping()
         {
-            CreateMap<Chef, ChefResponseDto>().ReverseMap();
+            // ReverseMap kullanılmaz: DTO'dan entity'ye dönüşte AppUserId gibi admin'in ayrı endpoint ile yönettiği alanlar ezilmemelidir.
+            CreateMap<Chef, ChefResponseDto>()
+                .ForMember(dest => dest.LinkedUserEmail, opt => opt.MapFrom(src => src.AppUser != null ? src.AppUser.Email : null));
 
             CreateMap<ChefCreateDto, Chef>()
                 .ForMember(dest => dest.ImageUrl, opt => opt.Ignore());

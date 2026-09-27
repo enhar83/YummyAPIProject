@@ -103,7 +103,7 @@ namespace Yummy.Business.Managers
             var isNameChanged = existingRole.Name != dto.Name;
             var isDeactivated = !existingRole.IsDeleted && dto.IsDeleted;
 
-            // sistem rollerinin (Admin, Customer) sadece açıklaması güncellenebilir; adı değiştirilemez ve pasife alınamaz.
+            // sistem rollerinin (RoleNames.SystemRoles) sadece açıklaması güncellenebilir; adı değiştirilemez ve pasife alınamaz.
             if (IsSystemRole(existingRole) && (isNameChanged || isDeactivated))
                 throw new LogicException("ProtectedRole", $"{existingRole.Name} rolü sistem rolüdür; adı değiştirilemez ve pasife alınamaz.");
 

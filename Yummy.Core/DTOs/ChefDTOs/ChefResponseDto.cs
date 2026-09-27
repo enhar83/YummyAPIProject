@@ -15,5 +15,9 @@ namespace Yummy.Core.DTOs.ChefDTOs
         public string Title { get; init; } = null!;
         public string Description { get; init; } = null!;
         public string? ImageUrl { get; init; }
+
+        // şef profilinin bağlı olduğu kullanıcı hesabı. hesabı olmayan şeflerde boştur.
+        public Guid? AppUserId { get; init; }
+        public string? LinkedUserEmail { get; init; }
     }
 }

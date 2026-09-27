@@ -1,4 +1,6 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Yummy.Business.Managers;
@@ -37,11 +39,26 @@ namespace Yummy.Tests.Infrastructure
         protected DiningTableManager CreateDiningTableManager(YummyDbContext db) =>
             new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper, Clock);
 
+        protected readonly FakeWebHostEnvironment WebHostEnvironment = new();
+
+        // Identity yöneticileri uygulamadaki gibi aynı DbContext üzerinde çalışır; böylece UnitOfWork transaction'ına dahil olurlar.
+        protected static UserManager<AppUser> CreateUserManager(YummyDbContext db) =>
+            new(new UserStore<AppUser, AppRole, YummyDbContext, Guid>(db), Microsoft.Extensions.Options.Options.Create(new IdentityOptions()), new PasswordHasher<AppUser>(),
+                Array.Empty<IUserValidator<AppUser>>(), Array.Empty<IPasswordValidator<AppUser>>(), new UpperInvariantLookupNormalizer(),
+                new IdentityErrorDescriber(), null!, NullLogger<UserManager<AppUser>>.Instance);
+
+        protected static RoleManager<AppRole> CreateRoleManager(YummyDbContext db) =>
+            new(new RoleStore<AppRole, YummyDbContext, Guid>(db), Array.Empty<IRoleValidator<AppRole>>(), new UpperInvariantLookupNormalizer(),
+                new IdentityErrorDescriber(), NullLogger<RoleManager<AppRole>>.Instance);
+
+        protected ChefManager CreateChefManager(YummyDbContext db) =>
+            new(new GenericRepository<Chef>(db), new UnitOfWork(db), Mapper, WebHostEnvironment, CreateUserManager(db));
+
         protected static void SeedUsers(YummyDbContext db)
         {
             db.Users.AddRange(
-                new AppUser { Id = UserA, UserName = "usera", Name = "User", Surname = "A", Email = "a@test.com" },
-                new AppUser { Id = UserB, UserName = "userb", Name = "User", Surname = "B", Email = "b@test.com" });
+                new AppUser { Id = UserA, UserName = "usera", Name = "User", Surname = "A", Email = "a@test.com", SecurityStamp = Guid.NewGuid().ToString("N") },
+                new AppUser { Id = UserB, UserName = "userb", Name = "User", Surname = "B", Email = "b@test.com", SecurityStamp = Guid.NewGuid().ToString("N") });
         }
 
         protected static ReservationCreateDto CreateDto(DateTime date, int guests = 2, string start = "19:00", string end = "21:00", Guid? tableId = null) => new()

@@ -55,5 +55,21 @@ namespace Yummy.WebAPI.Controllers
             await _chefService.DeleteAsync(id);
             return Ok("Şef başarıyla silindi.");
         }
+
+        // şef profilini kullanıcı hesabına bağlar; kullanıcıya Chef rolü verilir ve tekrar giriş yapması gerekir.
+        [HttpPut("{id}/link-user")]
+        public async Task<IActionResult> LinkUser(Guid id, [FromBody] ChefLinkUserDto dto)
+        {
+            await _chefService.LinkUserAsync(id, dto);
+            return Ok(new { message = "Şef profili kullanıcı hesabına bağlandı. Kullanıcının şef paneline erişmek için tekrar giriş yapması gerekir." });
+        }
+
+        // bağlantıyı kaldırır; kullanıcının Chef rolü geri alınır.
+        [HttpDelete("{id}/link-user")]
+        public async Task<IActionResult> UnlinkUser(Guid id)
+        {
+            await _chefService.UnlinkUserAsync(id);
+            return Ok(new { message = "Şef profili ile kullanıcı hesabı arasındaki bağlantı kaldırıldı." });
+        }
     }
 }

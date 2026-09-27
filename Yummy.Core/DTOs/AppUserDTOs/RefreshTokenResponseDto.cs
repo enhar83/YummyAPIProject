@@ -12,5 +12,8 @@ namespace Yummy.Core.DTOs.AppUserDTOs
         public string AccessToken { get; set; } = null!;
         public string RefreshToken { get; set; } = null!;
         public DateTime AccessTokenExpiryTime { get; set; }
+
+        // token içerisindeki roller. istemci, kullanıcıyı token'ı çözmeden doğru panele (admin, şef, çalışan, müşteri) yönlendirebilir.
+        public IList<string> Roles { get; set; } = new List<string>();
     }
 }

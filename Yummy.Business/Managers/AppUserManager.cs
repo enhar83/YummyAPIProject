@@ -246,7 +246,8 @@ namespace Yummy.Business.Managers
             {
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
-                AccessTokenExpiryTime = accessTokenExpiresAt
+                AccessTokenExpiryTime = accessTokenExpiresAt,
+                Roles = roles.ToList()
             };
         }
 
@@ -424,7 +425,8 @@ namespace Yummy.Business.Managers
             {
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshToken,
-                AccessTokenExpiryTime = accessTokenExpiresAt
+                AccessTokenExpiryTime = accessTokenExpiresAt,
+                Roles = roles.ToList()
             };
         }
 
