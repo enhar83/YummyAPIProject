@@ -1,6 +1,7 @@
 using AutoMapper;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Yummy.Core.DTOs.DiningTableDTOs;
@@ -68,35 +69,54 @@ namespace Yummy.Business.Managers
             dto.TableNo = dto.TableNo.Trim();
             await EnsureTableNoIsUniqueAsync(dto.TableNo, table.DiningTableId, cancellationToken);
 
-            // bugün veya ileri tarihli aktif (Pending/Approved) rezervasyonu olan masa pasife alınamaz; aksi halde bu rezervasyonlar kullanılamayan bir masada kalır.
-            // geçmiş, tamamlanmış veya iptal edilmiş rezervasyonlar engel değildir ve masa pasife alındıktan sonra da kullanıcıların listelerinde görünmeye devam eder.
             var today = _timeProvider.GetLocalToday();
+            bool isDeactivating = table.IsActive && !dto.IsActive;
+            bool isReducingCapacity = dto.Capacity < table.Capacity;
 
-            if (table.IsActive && !dto.IsActive)
+            // pasife alma ve kapasite düşürme, rezervasyon yapılabilecek tüm günlerin kilitleri altında yapılır. aksi halde kontrol ile kayıt arasında
+            // gelen bir rezervasyon, masayı hâlâ aktif/büyük görüp kaydedilebilir. diğer alan değişiklikleri rezervasyonları etkilemediği için kilit almaz.
+            var lockKeys = isDeactivating || isReducingCapacity ? GetBookableDayLockKeys(today) : Array.Empty<string>();
+
+            await _uow.ExecuteInLockedTransactionAsync(lockKeys, async () =>
             {
-                var hasActiveReservations = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
-                    r.ReservationDate >= today &&
-                    (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved), cancellationToken);
+                // bugün veya ileri tarihli aktif (Pending/Approved) rezervasyonu olan masa pasife alınamaz; aksi halde bu rezervasyonlar kullanılamayan bir masada kalır.
+                // geçmiş, tamamlanmış veya iptal edilmiş rezervasyonlar engel değildir ve masa pasife alındıktan sonra da kullanıcıların listelerinde görünmeye devam eder.
+                if (isDeactivating)
+                {
+                    var hasActiveReservations = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
+                        r.ReservationDate >= today &&
+                        (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved), cancellationToken);
 
-                if (hasActiveReservations)
-                    throw new LogicException("TableHasActiveReservations", "Bu masaya ait bekleyen veya onaylanmış rezervasyonlar bulunduğu için masa pasife alınamaz. Önce ilgili rezervasyonları iptal ediniz.");
-            }
+                    if (hasActiveReservations)
+                        throw new LogicException("TableHasActiveReservations", "Bu masaya ait bekleyen veya onaylanmış rezervasyonlar bulunduğu için masa pasife alınamaz. Önce ilgili rezervasyonları iptal ediniz.");
+                }
 
-            // kapasite düşürülürken, masadaki aktif rezervasyonlardan yeni kapasiteye sığmayan olup olmadığı kontrol edilir.
-            if (dto.Capacity < table.Capacity)
-            {
-                var hasLargerReservation = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
-                    r.ReservationDate >= today &&
-                    (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved) &&
-                    r.NumberOfGuests > dto.Capacity, cancellationToken);
+                // kapasite düşürülürken, masadaki aktif rezervasyonlardan yeni kapasiteye sığmayan olup olmadığı kontrol edilir.
+                if (isReducingCapacity)
+                {
+                    var hasLargerReservation = await _reservationRepository.AnyAsync(r => r.DiningTableId == table.DiningTableId &&
+                        r.ReservationDate >= today &&
+                        (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved) &&
+                        r.NumberOfGuests > dto.Capacity, cancellationToken);
 
-                if (hasLargerReservation)
-                    throw new LogicException("CapacityConflict", "Bu masada yeni kapasiteden daha fazla kişilik bekleyen veya onaylanmış rezervasyonlar bulunduğu için kapasite düşürülemez.");
-            }
+                    if (hasLargerReservation)
+                        throw new LogicException("CapacityConflict", "Bu masada yeni kapasiteden daha fazla kişilik bekleyen veya onaylanmış rezervasyonlar bulunduğu için kapasite düşürülemez.");
+                }
 
-            _mapper.Map(dto, table);
-            _tableRepository.Update(table);
-            await _uow.SaveAsync(cancellationToken);
+                _mapper.Map(dto, table);
+                _tableRepository.Update(table);
+                await _uow.SaveAsync(cancellationToken);
+            }, cancellationToken);
+        }
+
+        // bugünden rezervasyon yapılabilecek son güne kadar her günün kilidi, tarih sırasıyla (rezervasyon tarafıyla aynı sıra; deadlock oluşmaz).
+        // daha ileri bir güne rezervasyon oluşturulamadığı/taşınamadığı için bu aralık dışındaki günler kilitlenmez.
+        private static string[] GetBookableDayLockKeys(DateTime today)
+        {
+            var lastDay = today.AddMonths(ReservationManager.MaxMonthsAhead);
+            return Enumerable.Range(0, (lastDay - today).Days + 1)
+                .Select(offset => ReservationManager.GetDateLockKey(today.AddDays(offset)))
+                .ToArray();
         }
 
         // masa numarası pasif masalar dahil tüm masalar arasında benzersiz olmalıdır. veritabanında da unique index ile garanti altına alınır.

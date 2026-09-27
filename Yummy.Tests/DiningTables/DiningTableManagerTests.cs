@@ -3,7 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Yummy.Core.DTOs.CommonDTOs;
 using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Entity;
+using Yummy.Business.Managers;
 using Yummy.Core.Exceptions;
+using Yummy.Data;
+using Yummy.Data.Context;
+using Yummy.Data.Repositories;
 using Yummy.Entity.Enums;
 using Yummy.Tests.Infrastructure;
 
@@ -31,6 +35,45 @@ namespace Yummy.Tests.DiningTables
             await using var db = CreateDbContext();
             var ex = await Assert.ThrowsAsync<LogicException>(() => CreateDiningTableManager(db).UpdateAsync(Deactivate(SmallTableId, "Masa 1", 2)));
             Assert.Equal("TableHasActiveReservations", ex.PropertyName);
+        }
+
+        // kilidi almadan hemen önce "interleave" işini (örn. başka bir kullanıcının rezervasyonunu) araya sokan bir masa manager'ı oluşturur.
+        private DiningTableManager CreateInterleavedTableManager(YummyDbContext db, Func<Task> interleave) =>
+            new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new InterleavingUnitOfWork(new UnitOfWork(db), interleave), Mapper, Clock);
+
+        [Fact]
+        public async Task Deactivate_WhileReservationIsBeingCreated_IsRejected()
+        {
+            // admin masayı okuduktan sonra, kaydetmeden önce kullanıcı aynı masaya rezervasyon yapar.
+            await using (var db = CreateDbContext())
+            {
+                var manager = CreateInterleavedTableManager(db, () => BookAsync(UserA, FutureDay));
+
+                var ex = await Assert.ThrowsAsync<LogicException>(() => manager.UpdateAsync(Deactivate(SmallTableId, "Masa 1", 2)));
+                Assert.Equal("TableHasActiveReservations", ex.PropertyName);
+            }
+
+            await using var check = CreateDbContext();
+            Assert.True(check.DiningTables.Single(t => t.DiningTableId == SmallTableId).IsActive);
+            Assert.Equal(SmallTableId, check.Reservations.Single().DiningTableId);
+        }
+
+        [Fact]
+        public async Task ReduceCapacity_WhileLargerReservationIsBeingCreated_IsRejected()
+        {
+            await using (var db = CreateDbContext())
+            {
+                var manager = CreateInterleavedTableManager(db, () => BookAsync(UserA, FutureDay, guests: 4)); // MediumTable (4 kişilik)
+
+                var ex = await Assert.ThrowsAsync<LogicException>(() => manager.UpdateAsync(new DiningTableUpdateDto
+                {
+                    DiningTableId = MediumTableId, TableNo = "Masa 2", Capacity = 3, IsActive = true
+                }));
+                Assert.Equal("CapacityConflict", ex.PropertyName);
+            }
+
+            await using var check = CreateDbContext();
+            Assert.Equal(4, check.DiningTables.Single(t => t.DiningTableId == MediumTableId).Capacity);
         }
 
         [Fact]

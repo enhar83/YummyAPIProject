@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Core.DTOs.ReservationDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Data;
@@ -180,6 +181,27 @@ namespace Yummy.Tests.Reservations
             var ex = await Assert.ThrowsAsync<LogicException>(() => CreateReservationManager(ctx).UpdateReservationStatusAsync(
                 new UpdateReservationDto { ReservationId = id, ReservationStatus = ReservationStatus.Pending }));
             Assert.Equal("TableNotAvailable", ex.PropertyName);
+        }
+
+        [Fact]
+        public async Task AdminReactivatesCancelledReservation_WhenTableCapacityReducedMeanwhile_Throws()
+        {
+            // 4 kişilik rezervasyon MediumTable'a düşer. iptal edildikten sonra masanın kapasitesi 3'e düşürülür (iptal edilmiş rezervasyon buna engel değildir).
+            var id = await BookAsync(UserA, CreateDto(FutureDay, guests: 4));
+            await using (var db = CreateDbContext())
+                await CreateReservationManager(db).CancelReservationAsync(UserA.ToString(), id);
+            await using (var db = CreateDbContext())
+                await CreateDiningTableManager(db).UpdateAsync(new DiningTableUpdateDto { DiningTableId = MediumTableId, TableNo = "Masa 2", Capacity = 3, IsActive = true });
+
+            await using (var db = CreateDbContext())
+            {
+                var ex = await Assert.ThrowsAsync<LogicException>(() => CreateReservationManager(db).UpdateReservationStatusAsync(
+                    new UpdateReservationDto { ReservationId = id, ReservationStatus = ReservationStatus.Approved }));
+                Assert.Equal("TableNotAvailable", ex.PropertyName);
+            }
+
+            await using var check = CreateDbContext();
+            Assert.Equal(ReservationStatus.Cancelled, check.Reservations.Single(r => r.ReservationId == id).ReservationStatus);
         }
 
         [Fact]

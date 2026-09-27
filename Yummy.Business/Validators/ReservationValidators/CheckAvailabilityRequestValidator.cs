@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using FluentValidation;
+using Yummy.Business.Managers;
 using Yummy.Core.Extensions;
 using Yummy.Core.DTOs.ReservationDTOs;
 
@@ -19,7 +20,7 @@ namespace Yummy.Business.Validators.ReservationValidators
             .NotEmpty().WithMessage("Tarih seçimi zorunludur.")
             // .Date ile karşılaştırılır: istemci saat kısmı gönderse bile (örn. 2026-10-26T19:00) son geçerli gün reddedilmez.
             .Must(date => date.Date >= timeProvider.GetLocalToday()).WithMessage("Geçmiş bir tarih için uygunluk kontrolü yapılamaz.")
-            .Must(date => date.Date <= timeProvider.GetLocalToday().AddMonths(1)).WithMessage("En fazla 1 ay sonrasına uygunluk kontrolü yapabilirsiniz.");
+            .Must(date => date.Date <= timeProvider.GetLocalToday().AddMonths(ReservationManager.MaxMonthsAhead)).WithMessage("En fazla 1 ay sonrasına uygunluk kontrolü yapabilirsiniz.");
 
             RuleFor(x => x.ReservationTime)
                 .NotEmpty().WithMessage("Rezervasyon saati zorunludur.")

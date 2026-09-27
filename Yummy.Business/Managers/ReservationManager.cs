@@ -32,6 +32,7 @@ namespace Yummy.Business.Managers
 
         private const int MinHoursBeforeChange = 2; // iptal edememe sınırı
         public const int MaxActiveReservationsPerUser = 3; // kişi başı approved/pending rezervasyon limiti
+        public const int MaxMonthsAhead = 1; // en fazla kaç ay sonrasına rezervasyon yapılabilir (validator'lar ve masa güncellemedeki kilit aralığı bunu kullanır)
 
         public ReservationManager(IGenericRepository<Reservation> reservationRepository, IGenericRepository<DiningTable> tableRepository, IUnitOfWork uow, IMapper mapper, IEmailService emailService, ILogger<ReservationManager> logger, TimeProvider timeProvider)
         {
@@ -365,6 +366,10 @@ namespace Yummy.Business.Managers
                     if (table == null || !table.IsActive)
                         throw new LogicException("TableNotAvailable", "Rezervasyonun masası artık kullanımda değil. Kullanıcının yeni bir rezervasyon oluşturması gerekir.");
 
+                    // rezervasyon iptalliyken masanın kapasitesi düşürülmüş olabilir (kapasite kontrolü sadece aktif rezervasyonlara bakar).
+                    if (table.Capacity < reservation.NumberOfGuests)
+                        throw new LogicException("TableNotAvailable", "Rezervasyonun masasının kapasitesi kişi sayısı için artık yetersiz. Kullanıcının yeni bir rezervasyon oluşturması gerekir.");
+
                     var busyTableIds = await GetBusyTableIdsAsync(targetDate, resStart, resEnd, reservation.ReservationId, cancellationToken);
                     if (busyTableIds.Contains(reservation.DiningTableId))
                         throw new LogicException("TableNotAvailable", "Rezervasyonun masası bu saat aralığında başka bir rezervasyona ayrılmış. Kullanıcının yeni bir rezervasyon oluşturması gerekir.");
@@ -523,7 +528,8 @@ namespace Yummy.Business.Managers
         }
 
         // aynı güne ait rezervasyon yazma işlemleri bu anahtar ile kilitlenir. farklı günlerin istekleri birbirini beklemez.
-        private static string GetDateLockKey(DateTime date) => $"reservation:{date:yyyy-MM-dd}";
+        // DiningTableManager da masayı pasife alırken/kapasitesini düşürürken aynı anahtarları kullanır.
+        internal static string GetDateLockKey(DateTime date) => $"reservation:{date:yyyy-MM-dd}";
 
         // aynı kullanıcının rezervasyon oluşturma istekleri bu anahtar ile sıraya girer (aktif rezervasyon limiti için).
         private static string GetUserLockKey(Guid userId) => $"reservation-user:{userId}";

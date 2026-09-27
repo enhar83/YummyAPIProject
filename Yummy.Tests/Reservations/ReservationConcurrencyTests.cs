@@ -1,9 +1,11 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Yummy.Business.Managers;
+using Yummy.Core.DTOs.DiningTableDTOs;
 using Yummy.Core.Exceptions;
 using Yummy.Data.Context;
 using Yummy.Entity;
+using Yummy.Entity.Enums;
 using Yummy.Tests.Infrastructure;
 
 namespace Yummy.Tests.Reservations
@@ -124,6 +126,62 @@ namespace Yummy.Tests.Reservations
 
             Assert.Equal(ReservationManager.MaxActiveReservationsPerUser, results.Count(r => r == null));
             Assert.All(results.Where(r => r != null), ex => Assert.Equal("ReservationLimit", Assert.IsType<LogicException>(ex).PropertyName));
+        }
+
+        [SkippableFact]
+        public async Task DeactivateTable_ConcurrentWithBookings_NeverLeavesActiveReservationOnInactiveTable()
+        {
+            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+
+            Guid tableId;
+            await using (var db = CreateDbContext())
+                tableId = (await db.DiningTables.SingleAsync()).DiningTableId;
+
+            // rezervasyonlar, yarından rezervasyon yapılabilecek son güne kadar farklı günlere dağılır; masa aynı anda pasife alınmaya çalışılır.
+            var days = new[] { Today.AddDays(1), Today.AddDays(7), Today.AddDays(15), Today.AddDays(22), Today.AddMonths(ReservationManager.MaxMonthsAhead) };
+
+            using var startSignal = new ManualResetEventSlim(false);
+            var bookings = days.Select((day, i) => Task.Run(async () =>
+            {
+                startSignal.Wait();
+                await using var db = CreateDbContext();
+                await CreateReservationManager(db).AddReservationAsync(_extraUsers[i].ToString(), CreateDto(day));
+            })).ToList();
+            var deactivation = Task.Run(async () =>
+            {
+                startSignal.Wait();
+                await using var db = CreateDbContext();
+                await CreateDiningTableManager(db).UpdateAsync(new DiningTableUpdateDto { DiningTableId = tableId, TableNo = "Tek Masa", Capacity = 2, IsActive = false });
+            });
+
+            startSignal.Set();
+            var bookingResults = await Task.WhenAll(bookings.Select(async t =>
+            {
+                try { await t; return (Exception?)null; }
+                catch (Exception ex) { return ex; }
+            }));
+            Exception? deactivationError = null;
+            try { await deactivation; }
+            catch (Exception ex) { deactivationError = ex; }
+
+            // pasife alma önce kilitleri aldıysa sonraki rezervasyonlar masayı bulamaz (NoTable); bir rezervasyon önce kaydedildiyse pasife alma reddedilir.
+            Assert.All(bookingResults.Where(r => r != null), ex => Assert.Equal("NoTable", Assert.IsType<LogicException>(ex).PropertyName));
+
+            await using var check = CreateDbContext();
+            var table = await check.DiningTables.SingleAsync();
+            var activeCount = await check.Reservations.CountAsync(r => r.DiningTableId == tableId &&
+                (r.ReservationStatus == ReservationStatus.Pending || r.ReservationStatus == ReservationStatus.Approved));
+
+            if (table.IsActive)
+            {
+                Assert.Equal("TableHasActiveReservations", Assert.IsType<LogicException>(deactivationError).PropertyName);
+                Assert.True(activeCount > 0);
+            }
+            else
+            {
+                Assert.Null(deactivationError);
+                Assert.Equal(0, activeCount);
+            }
         }
     }
 }
