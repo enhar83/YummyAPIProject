@@ -19,9 +19,6 @@ using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Managers
 {
-    // eşzamanlılık kuralı: bir rezervasyon satırını değiştiren her işlem (oluşturma, güncelleme, iptal, admin durum değişikliği, arka plan servisi)
-    // rezervasyonun gününe ait kilidi alır ve kaydı kilidin İÇİNDE yeniden okur. böylece bir işlem, diğerinin yaptığı değişikliği eski bir kopya ile ezemez.
-    // kilit sırası her yerde aynıdır: önce kullanıcı kilidi (sadece oluşturmada), sonra gün kilitleri tarih sırasıyla. bu sıra deadlock oluşmasını engeller.
     public class ReservationManager : IReservationService
     {
         private readonly IGenericRepository<Reservation> _reservationRepository;
@@ -30,7 +27,8 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private readonly IEmailService _emailService;
         private readonly ILogger<ReservationManager> _logger;
-        private readonly TimeProvider _timeProvider; // .net'in saat sınıfıdır. 
+        private readonly TimeProvider _timeProvider; // .net'in saat sınıfıdır.
+        // datetime.now sunucu saatini verir bundan dolayı problem çıkartabilirdi.
 
         private const int MinHoursBeforeChange = 2; // iptal edememe sınırı
         public const int MaxActiveReservationsPerUser = 3; // kişi başı approved/pending rezervasyon limiti

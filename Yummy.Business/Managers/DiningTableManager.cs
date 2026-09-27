@@ -14,8 +14,6 @@ using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Managers
 {
-    // masa yönetimi (sadece admin). masalar silinmez; kullanımdan kaldırılacak masa IsActive = false yapılarak pasife alınır.
-    // pasif masa yeni rezervasyonlarda ve harita/müsaitlik sorgularında listelenmez, fakat geçmiş rezervasyonlarda masa bilgisi görünmeye devam eder.
     public class DiningTableManager : IDiningTableService
     {
         private readonly IGenericRepository<DiningTable> _tableRepository;
