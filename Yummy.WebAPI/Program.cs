@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
@@ -52,12 +53,26 @@ builder.Services.AddIdentityCore<AppUser>(options => {
 .AddEntityFrameworkStores<YummyDbContext>()
 .AddDefaultTokenProviders();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // enum alanları isimleriyle okunur ve yazılır (örn. "unit": "Kilogram", "type": "StockIn").
+        // geriye dönük uyumluluk için istekte sayısal değer (örn. 2) de kabul edilir; tanımsız değerleri validator'lar (IsInEnum) reddeder.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Yummy API", Version = "v1" });
+
+    // enum'lar her alanın içinde tanımlanır; böylece Swagger seçenekleri açılır liste olarak gösterir ve alanın açıklaması (/// summary) görünür.
+    c.UseInlineDefinitionsForEnums();
+
+    // DTO'lardaki /// summary açıklamaları Swagger'da alan açıklaması olarak gösterilir (Yummy.Core.xml derleme sırasında üretilir).
+    var coreXmlPath = Path.Combine(AppContext.BaseDirectory, $"{typeof(Yummy.Core.DTOs.IngredientDTOs.StockAdjustmentDto).Assembly.GetName().Name}.xml");
+    if (File.Exists(coreXmlPath))
+        c.IncludeXmlComments(coreXmlPath);
     // Http + bearer tipinde tanımlandığı için Swagger "Bearer " ön ekini kendisi ekler; sadece token'ın yapıştırılması yeterlidir.
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
