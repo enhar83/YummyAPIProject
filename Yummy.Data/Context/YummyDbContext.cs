@@ -21,6 +21,8 @@ namespace Yummy.Data.Context
         public DbSet<Feature>     Features     { get; set; }
         public DbSet<Gallery>     Galleries    { get; set; }
         public DbSet<DiningTable> DiningTables { get; set; }
+        public DbSet<Ingredient>  Ingredients  { get; set; }
+        public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<Message>     Messages     { get; set; }
         public DbSet<Product>     Products     { get; set; }
         public DbSet<Reservation> Reservations { get; set; }

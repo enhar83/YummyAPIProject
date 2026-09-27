@@ -1,4 +1,3 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Yummy.Business.Managers;
 using Yummy.Core.DTOs.DiningTableDTOs;
@@ -10,58 +9,24 @@ using Yummy.Tests.Infrastructure;
 
 namespace Yummy.Tests.Reservations
 {
-    // sp_getapplock SQL Server'a özgü olduğu için bu testler gerçek bir SQL Server (varsayılan: LocalDB) üzerinde,
-    // her çalıştırmada oluşturulup sonunda silinen geçici bir veritabanında koşar. SQL Server'a erişilemezse testler atlanır (Skipped).
-    // farklı bir sunucu kullanmak için YUMMY_TEST_SQLSERVER ortam değişkenine "Server=...;" kısmı verilebilir.
-    public class ReservationConcurrencyTests : TestContext, IAsyncLifetime
+    // rezervasyon kilitlerinin gerçek SQL Server üzerinde eşzamanlı isteklerle testi (bkz. SqlServerTestBase).
+    public class ReservationConcurrencyTests : SqlServerTestBase
     {
         private const int ConcurrentRequests = 10;
         private static readonly DateTime FutureDay = Now.Date.AddDays(3);
         private readonly Guid[] _extraUsers = Enumerable.Range(0, 5).Select(_ => Guid.NewGuid()).ToArray();
 
-        private readonly string _connectionString;
-        private bool _isAvailable;
-
-        protected override DbContextOptions<YummyDbContext> Options { get; }
-
-        public ReservationConcurrencyTests()
+        protected override Task SeedAsync(YummyDbContext db)
         {
-            var server = Environment.GetEnvironmentVariable("YUMMY_TEST_SQLSERVER") ?? @"Server=(localdb)\MSSQLLocalDB;";
-            _connectionString = $"{server.TrimEnd(';')};Database=YummyTests_{Guid.NewGuid():N};Trusted_Connection=True;TrustServerCertificate=True;Connect Timeout=5";
-            Options = new DbContextOptionsBuilder<YummyDbContext>().UseSqlServer(_connectionString).Options;
-        }
-
-        public async Task InitializeAsync()
-        {
-            try
-            {
-                await using var db = CreateDbContext();
-                await db.Database.EnsureCreatedAsync();
-                SeedUsers(db);
-                db.Users.AddRange(_extraUsers.Select(id => new AppUser { Id = id, UserName = $"user-{id:N}", Name = "Ek", Surname = "Kullanıcı", Email = $"{id:N}@test.com" }));
-                db.DiningTables.Add(new DiningTable { TableNo = "Tek Masa", Capacity = 2 });
-                await db.SaveChangesAsync();
-                _isAvailable = true;
-            }
-            catch (SqlException)
-            {
-                _isAvailable = false;
-            }
-        }
-
-        public async Task DisposeAsync()
-        {
-            if (!_isAvailable)
-                return;
-
-            await using var db = CreateDbContext();
-            await db.Database.EnsureDeletedAsync();
+            db.Users.AddRange(_extraUsers.Select(id => new AppUser { Id = id, UserName = $"user-{id:N}", Name = "Ek", Surname = "Kullanıcı", Email = $"{id:N}@test.com" }));
+            db.DiningTables.Add(new DiningTable { TableNo = "Tek Masa", Capacity = 2 });
+            return Task.CompletedTask;
         }
 
         [SkippableFact]
         public async Task ConcurrentBookingsForSameSlot_OnlyOneSucceeds()
         {
-            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+            Skip.IfNot(IsAvailable, SkipReason);
 
             using var startSignal = new ManualResetEventSlim(false);
 
@@ -89,7 +54,7 @@ namespace Yummy.Tests.Reservations
         [SkippableFact]
         public async Task ConcurrentBookingsForDifferentDays_AllSucceed()
         {
-            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+            Skip.IfNot(IsAvailable, SkipReason);
 
             var tasks = Enumerable.Range(0, 5).Select(i => Task.Run(async () =>
             {
@@ -106,7 +71,7 @@ namespace Yummy.Tests.Reservations
         [SkippableFact]
         public async Task ConcurrentBookingsBySameUserForDifferentDays_CannotExceedActiveLimit()
         {
-            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+            Skip.IfNot(IsAvailable, SkipReason);
 
             // farklı günler farklı gün kilitlerine düşer; limitin aşılmamasını kullanıcı kilidi sağlar.
             using var startSignal = new ManualResetEventSlim(false);
@@ -131,7 +96,7 @@ namespace Yummy.Tests.Reservations
         [SkippableFact]
         public async Task DeactivateTable_ConcurrentWithBookings_NeverLeavesActiveReservationOnInactiveTable()
         {
-            Skip.IfNot(_isAvailable, "SQL Server (LocalDB) erişilebilir değil.");
+            Skip.IfNot(IsAvailable, SkipReason);
 
             Guid tableId;
             await using (var db = CreateDbContext())

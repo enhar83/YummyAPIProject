@@ -39,6 +39,9 @@ namespace Yummy.Tests.Infrastructure
         protected DiningTableManager CreateDiningTableManager(YummyDbContext db) =>
             new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper, Clock);
 
+        protected IngredientManager CreateIngredientManager(YummyDbContext db) =>
+            new(new GenericRepository<Ingredient>(db), new GenericRepository<StockMovement>(db), new UnitOfWork(db), Mapper);
+
         protected readonly FakeWebHostEnvironment WebHostEnvironment = new();
 
         // Identity yöneticileri uygulamadaki gibi aynı DbContext üzerinde çalışır; böylece UnitOfWork transaction'ına dahil olurlar.
