@@ -23,7 +23,7 @@ namespace Yummy.Tests.Ingredients
             return (await db.Ingredients.SingleAsync(i => i.Name == name.Trim())).IngredientId;
         }
 
-        private async Task AdjustAsync(Guid id, StockMovementType type, decimal quantity, string? note = null)
+        private async Task AdjustAsync(Guid id, StockAdjustmentType type, decimal quantity, string? note = null)
         {
             await using var db = CreateDbContext();
             await CreateIngredientManager(db).AdjustStockAsync(UserA.ToString(), id, new StockAdjustmentDto { Type = type, Quantity = quantity, Note = note });
@@ -93,7 +93,7 @@ namespace Yummy.Tests.Ingredients
         public async Task Update_UnitChangeAfterMovement_Throws_ButNameCanChange()
         {
             var id = await CreateAsync("Un", IngredientUnit.Kilogram);
-            await AdjustAsync(id, StockMovementType.StockIn, 5);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 5);
 
             await using (var db = CreateDbContext())
             {
@@ -124,13 +124,13 @@ namespace Yummy.Tests.Ingredients
         public async Task Update_WhileStockIsAdjusted_DoesNotOverwriteStock()
         {
             var id = await CreateAsync("Pirinç");
-            await AdjustAsync(id, StockMovementType.StockIn, 10);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 10);
 
             // kart güncellemesi kilidi almadan hemen önce başka bir çalışan stok girişi yapar.
             await using (var db = CreateDbContext())
             {
                 var manager = new IngredientManager(new GenericRepository<Ingredient>(db), new GenericRepository<StockMovement>(db),
-                    new InterleavingUnitOfWork(new UnitOfWork(db), () => AdjustAsync(id, StockMovementType.StockIn, 5)), Mapper);
+                    new GenericRepository<IngredientRequestItem>(db), new InterleavingUnitOfWork(new UnitOfWork(db), () => AdjustAsync(id, StockAdjustmentType.StockIn, 5)), Mapper);
 
                 await manager.UpdateAsync(new IngredientUpdateDto { IngredientId = id, Name = "Baldo Pirinç", Unit = IngredientUnit.Kilogram });
             }
@@ -144,7 +144,7 @@ namespace Yummy.Tests.Ingredients
         public async Task Delete_WithStock_Throws()
         {
             var id = await CreateAsync("Zeytinyağı", IngredientUnit.Liter);
-            await AdjustAsync(id, StockMovementType.StockIn, 2);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 2);
 
             await using var db = CreateDbContext();
             var ex = await Assert.ThrowsAsync<LogicException>(() => CreateIngredientManager(db).DeleteAsync(id));
@@ -155,8 +155,8 @@ namespace Yummy.Tests.Ingredients
         public async Task Delete_AtZeroStock_SoftDeletes_KeepsHistory_AndNameCanBeReused()
         {
             var id = await CreateAsync("Maydanoz", IngredientUnit.Piece);
-            await AdjustAsync(id, StockMovementType.StockIn, 3);
-            await AdjustAsync(id, StockMovementType.Waste, 3, "Soldu");
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 3);
+            await AdjustAsync(id, StockAdjustmentType.Waste, 3, "Soldu");
 
             await using (var db = CreateDbContext())
                 await CreateIngredientManager(db).DeleteAsync(id);
@@ -178,7 +178,7 @@ namespace Yummy.Tests.Ingredients
         {
             var id = await CreateAsync("Tereyağı");
 
-            await AdjustAsync(id, StockMovementType.StockIn, 2.5m, "  Haftalık alım  ");
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 2.5m, "  Haftalık alım  ");
 
             Assert.Equal(2.5m, (await GetAsync(id)).StockQuantity);
             var movement = Assert.Single(await GetMovementsAsync(id));
@@ -193,9 +193,9 @@ namespace Yummy.Tests.Ingredients
         public async Task Waste_MoreThanStock_Throws_AndNothingChanges()
         {
             var id = await CreateAsync("Yumurta", IngredientUnit.Piece);
-            await AdjustAsync(id, StockMovementType.StockIn, 10);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 10);
 
-            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(id, StockMovementType.Waste, 11));
+            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(id, StockAdjustmentType.Waste, 11));
             Assert.Equal("InsufficientStock", ex.PropertyName);
 
             Assert.Equal(10, (await GetAsync(id)).StockQuantity);
@@ -206,9 +206,9 @@ namespace Yummy.Tests.Ingredients
         public async Task Waste_DecreasesStock_AsNegativeMovement()
         {
             var id = await CreateAsync("Kıyma");
-            await AdjustAsync(id, StockMovementType.StockIn, 4);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 4);
 
-            await AdjustAsync(id, StockMovementType.Waste, 1.25m, "Bozuldu");
+            await AdjustAsync(id, StockAdjustmentType.Waste, 1.25m, "Bozuldu");
 
             Assert.Equal(2.75m, (await GetAsync(id)).StockQuantity);
             var waste = (await GetMovementsAsync(id)).Single(m => m.Type == StockMovementType.Waste);
@@ -223,9 +223,9 @@ namespace Yummy.Tests.Ingredients
         public async Task CountCorrection_SetsStockToCountedAmount_AndRecordsDifference(decimal counted, decimal expectedChange)
         {
             var id = await CreateAsync("Patates");
-            await AdjustAsync(id, StockMovementType.StockIn, 10);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 10);
 
-            await AdjustAsync(id, StockMovementType.CountCorrection, counted);
+            await AdjustAsync(id, StockAdjustmentType.CountCorrection, counted);
 
             Assert.Equal(counted, (await GetAsync(id)).StockQuantity);
             var correction = (await GetMovementsAsync(id)).Single(m => m.Type == StockMovementType.CountCorrection);
@@ -237,9 +237,9 @@ namespace Yummy.Tests.Ingredients
         public async Task CountCorrection_SameAsStock_ThrowsNoChanges()
         {
             var id = await CreateAsync("Soğan");
-            await AdjustAsync(id, StockMovementType.StockIn, 3);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 3);
 
-            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(id, StockMovementType.CountCorrection, 3));
+            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(id, StockAdjustmentType.CountCorrection, 3));
             Assert.Equal("NoChanges", ex.PropertyName);
             Assert.Single(await GetMovementsAsync(id));
         }
@@ -247,7 +247,7 @@ namespace Yummy.Tests.Ingredients
         [Fact]
         public async Task AdjustStock_UnknownIngredient_ThrowsNotFound()
         {
-            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(Guid.NewGuid(), StockMovementType.StockIn, 1));
+            var ex = await Assert.ThrowsAsync<LogicException>(() => AdjustAsync(Guid.NewGuid(), StockAdjustmentType.StockIn, 1));
             Assert.Equal("NotFound", ex.PropertyName);
         }
 
@@ -255,9 +255,9 @@ namespace Yummy.Tests.Ingredients
         public async Task GetStockMovements_NewestFirst_Paged_WithPerformerName()
         {
             var id = await CreateAsync("Limon", IngredientUnit.Piece);
-            await AdjustAsync(id, StockMovementType.StockIn, 10);
-            await AdjustAsync(id, StockMovementType.Waste, 2);
-            await AdjustAsync(id, StockMovementType.CountCorrection, 7);
+            await AdjustAsync(id, StockAdjustmentType.StockIn, 10);
+            await AdjustAsync(id, StockAdjustmentType.Waste, 2);
+            await AdjustAsync(id, StockAdjustmentType.CountCorrection, 7);
 
             await using var db = CreateDbContext();
             var manager = CreateIngredientManager(db);
@@ -288,14 +288,14 @@ namespace Yummy.Tests.Ingredients
         // ---------- validator'lar ----------
 
         [Theory]
-        [InlineData(StockMovementType.StockIn, 0, false)]
-        [InlineData(StockMovementType.Waste, -1, false)]
-        [InlineData(StockMovementType.StockIn, 0.001, true)]
-        [InlineData(StockMovementType.StockIn, 1.0001, false)] // 4 ondalık basamak
-        [InlineData(StockMovementType.CountCorrection, 0, true)]
-        [InlineData(StockMovementType.CountCorrection, -1, false)]
-        [InlineData((StockMovementType)99, 1, false)]
-        public void StockAdjustmentValidator(StockMovementType type, decimal quantity, bool isValid)
+        [InlineData(StockAdjustmentType.StockIn, 0, false)]
+        [InlineData(StockAdjustmentType.Waste, -1, false)]
+        [InlineData(StockAdjustmentType.StockIn, 0.001, true)]
+        [InlineData(StockAdjustmentType.StockIn, 1.0001, false)] // 4 ondalık basamak
+        [InlineData(StockAdjustmentType.CountCorrection, 0, true)]
+        [InlineData(StockAdjustmentType.CountCorrection, -1, false)]
+        [InlineData((StockAdjustmentType)99, 1, false)]
+        public void StockAdjustmentValidator(StockAdjustmentType type, decimal quantity, bool isValid)
         {
             var result = new StockAdjustmentValidator().Validate(new StockAdjustmentDto { Type = type, Quantity = quantity });
             Assert.Equal(isValid, result.IsValid);

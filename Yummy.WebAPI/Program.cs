@@ -132,6 +132,7 @@ builder.Services.AddScoped<IReservationService, ReservationManager>();
 builder.Services.AddScoped<ITestimonialService, TestimonialManager>();
 builder.Services.AddScoped<IDiningTableService, DiningTableManager>();
 builder.Services.AddScoped<IIngredientService, IngredientManager>();
+builder.Services.AddScoped<IIngredientRequestService, IngredientRequestManager>();
 
 builder.Services.AddHostedService<ReservationStatusWorker>();
 

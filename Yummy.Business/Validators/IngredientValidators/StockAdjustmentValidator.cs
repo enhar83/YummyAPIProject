@@ -15,11 +15,11 @@ namespace Yummy.Business.Validators.IngredientValidators
             // koşullu kurallar ayrı RuleFor ile yazılır: zincirdeki .When() önceki TÜM kurallara uygulandığı için tek zincirde koşullar birbirini iptal eder.
             RuleFor(x => x.Quantity)
                 .GreaterThan(0).WithMessage("Miktar 0'dan büyük olmalıdır.")
-                .When(x => x.Type != StockMovementType.CountCorrection);
+                .When(x => x.Type != StockAdjustmentType.CountCorrection);
 
             RuleFor(x => x.Quantity)
                 .GreaterThanOrEqualTo(0).WithMessage("Sayılan miktar negatif olamaz.")
-                .When(x => x.Type == StockMovementType.CountCorrection);
+                .When(x => x.Type == StockAdjustmentType.CountCorrection);
 
             // veritabanındaki kolon ile aynı hassasiyet: decimal(18,3).
             RuleFor(x => x.Quantity)

@@ -5,6 +5,7 @@ namespace Yummy.Entity.Enums
     {
         StockIn = 1,          // çalışanın elle yaptığı stok girişi (örn. rutin alım)
         Waste = 2,            // fire / bozulma nedeniyle stoktan düşüm
-        CountCorrection = 3   // sayım sonucu stoğun gerçek miktara eşitlenmesi (artı veya eksi)
+        CountCorrection = 3,  // sayım sonucu stoğun gerçek miktara eşitlenmesi (artı veya eksi)
+        RequestSupply = 4     // şefin malzeme talebi için yapılan tedarik (IngredientRequestManager.SupplyAsync)
     }
 }

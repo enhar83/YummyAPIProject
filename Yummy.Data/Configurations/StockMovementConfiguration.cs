@@ -31,6 +31,13 @@ namespace Yummy.Data.Configurations
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // tedarik hareketinin ait olduğu talep. talepler silinmediği için Restrict yeterlidir (multiple cascade path oluşmaz).
+            builder.HasOne(m => m.IngredientRequest)
+                .WithMany()
+                .HasForeignKey(m => m.IngredientRequestId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // hareket geçmişi malzeme bazında en yeniden eskiye listelenir.
             builder.HasIndex(m => new { m.IngredientId, m.CreatedDate });
         }

@@ -41,6 +41,10 @@
     <None Update="Templates\Reservation*.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- malzeme talebi sonucu e-posta şablonu (IngredientRequestManager). -->
+    <None Update="Templates\IngredientRequest*.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

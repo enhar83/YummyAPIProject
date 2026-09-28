@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Yummy.Business.Managers;
 using Yummy.Core.DTOs.ReservationDTOs;
+using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
 using Yummy.Data;
 using Yummy.Data.Context;
@@ -40,7 +41,11 @@ namespace Yummy.Tests.Infrastructure
             new(new GenericRepository<DiningTable>(db), new GenericRepository<Reservation>(db), new UnitOfWork(db), Mapper, Clock);
 
         protected IngredientManager CreateIngredientManager(YummyDbContext db) =>
-            new(new GenericRepository<Ingredient>(db), new GenericRepository<StockMovement>(db), new UnitOfWork(db), Mapper);
+            new(new GenericRepository<Ingredient>(db), new GenericRepository<StockMovement>(db), new GenericRepository<IngredientRequestItem>(db), new UnitOfWork(db), Mapper);
+
+        protected IngredientRequestManager CreateIngredientRequestManager(YummyDbContext db, IUnitOfWork? uow = null) =>
+            new(new GenericRepository<IngredientRequest>(db), new GenericRepository<Ingredient>(db), new GenericRepository<StockMovement>(db),
+                new GenericRepository<Chef>(db), uow ?? new UnitOfWork(db), Mapper, Email, NullLogger<IngredientRequestManager>.Instance, Clock);
 
         protected readonly FakeWebHostEnvironment WebHostEnvironment = new();
 
@@ -55,7 +60,7 @@ namespace Yummy.Tests.Infrastructure
                 new IdentityErrorDescriber(), NullLogger<RoleManager<AppRole>>.Instance);
 
         protected ChefManager CreateChefManager(YummyDbContext db) =>
-            new(new GenericRepository<Chef>(db), new UnitOfWork(db), Mapper, WebHostEnvironment, CreateUserManager(db));
+            new(new GenericRepository<Chef>(db), new UnitOfWork(db), Mapper, WebHostEnvironment, CreateUserManager(db), new GenericRepository<IngredientRequest>(db));
 
         protected static void SeedUsers(YummyDbContext db)
         {

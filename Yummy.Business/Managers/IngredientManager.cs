@@ -19,11 +19,12 @@ namespace Yummy.Business.Managers
     // stok kartları ve stok hareketleri.
     // eşzamanlılık kuralı: stok kartını veya stoğu değiştiren her işlem aynı "stock" kilidini alır ve kaydı kilidin İÇİNDE yeniden okur.
     // böylece iki işlem aynı stoğu eski bir kopya üzerinden değiştiremez (örn. iki fire kaydı stoğu eksiye düşüremez).
-    // ilerideki adımlarda stoğu değiştiren diğer işlemler (talep tedariki, günün spesyali) de aynı kilidi kullanır.
+    // stoğu değiştiren diğer işlemler (IngredientRequestManager: talep tedariki; ilerideki adımda günün spesyali) de aynı kilidi kullanır.
     public class IngredientManager : IIngredientService
     {
         private readonly IGenericRepository<Ingredient> _ingredientRepository;
         private readonly IGenericRepository<StockMovement> _stockMovementRepository;
+        private readonly IGenericRepository<IngredientRequestItem> _requestItemRepository;
         private readonly IUnitOfWork _uow;
         private readonly IMapper _mapper;
 
@@ -32,10 +33,11 @@ namespace Yummy.Business.Managers
         // malzeme adları büyük/küçük harf duyarsız ve Türkçe kurallarına göre karşılaştırılır ("incir" ile "İNCİR" aynı malzemedir).
         private static readonly StringComparer NameComparer = StringComparer.Create(CultureInfo.GetCultureInfo("tr-TR"), ignoreCase: true);
 
-        public IngredientManager(IGenericRepository<Ingredient> ingredientRepository, IGenericRepository<StockMovement> stockMovementRepository, IUnitOfWork uow, IMapper mapper)
+        public IngredientManager(IGenericRepository<Ingredient> ingredientRepository, IGenericRepository<StockMovement> stockMovementRepository, IGenericRepository<IngredientRequestItem> requestItemRepository, IUnitOfWork uow, IMapper mapper)
         {
             _ingredientRepository = ingredientRepository;
             _stockMovementRepository = stockMovementRepository;
+            _requestItemRepository = requestItemRepository;
             _uow = uow;
             _mapper = mapper;
         }
@@ -85,9 +87,11 @@ namespace Yummy.Business.Managers
 
                 await EnsureNameIsUniqueAsync(name, ingredient.IngredientId, cancellationToken);
 
-                // hareket geçmişindeki miktarlar eski birime göredir; birim değişirse "5 kg" kaydı "5 g" olarak okunur.
-                if (ingredient.Unit != dto.Unit && await _stockMovementRepository.AnyAsync(m => m.IngredientId == ingredient.IngredientId, cancellationToken))
-                    throw new LogicException("UnitLocked", "Stok hareketi bulunan bir malzemenin birimi değiştirilemez. Farklı birimle yeni bir malzeme kartı oluşturunuz.");
+                // hareket geçmişindeki ve taleplerdeki miktarlar eski birime göredir; birim değişirse "5 kg" kaydı "5 g" olarak okunur.
+                if (ingredient.Unit != dto.Unit &&
+                    (await _stockMovementRepository.AnyAsync(m => m.IngredientId == ingredient.IngredientId, cancellationToken) ||
+                     await _requestItemRepository.AnyAsync(i => i.IngredientId == ingredient.IngredientId, cancellationToken)))
+                    throw new LogicException("UnitLocked", "Stok hareketi veya talebi bulunan bir malzemenin birimi değiştirilemez. Farklı birimle yeni bir malzeme kartı oluşturunuz.");
 
                 ingredient.Name = name;
                 ingredient.Unit = dto.Unit;
@@ -98,6 +102,7 @@ namespace Yummy.Business.Managers
         }
 
         // malzeme soft delete ile silinir; hareket geçmişi korunur. stokta miktar varken silinemez (önce fire veya sayım ile sıfırlanmalıdır).
+        // bekleyen bir talepte yer alan malzeme de silinemez; aksi halde çalışan talebi, artık olmayan bir kartın stoğuna tedarik etmeye çalışır.
         public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
             await _uow.ExecuteInLockedTransactionAsync(StockLockKey, async () =>
@@ -108,12 +113,16 @@ namespace Yummy.Business.Managers
                 if (ingredient.StockQuantity != 0)
                     throw new LogicException("StockNotEmpty", "Stokta miktar bulunan bir malzeme silinemez. Önce stoğu fire veya sayım düzeltmesi ile sıfırlayınız.");
 
+                if (await _requestItemRepository.AnyAsync(i => i.IngredientId == id && i.IngredientRequest.Status == IngredientRequestStatus.Pending, cancellationToken))
+                    throw new LogicException("IngredientInPendingRequest", "Bu malzeme bekleyen bir malzeme talebinde yer aldığı için silinemez. Önce talebin sonuçlandırılması gerekir.");
+
                 _ingredientRepository.Remove(ingredient);
                 await _uow.SaveAsync(cancellationToken);
             }, cancellationToken);
         }
 
-        // stok sadece bu metot ile (ve ilerideki adımlarda tedarik/spesyal ile) değişir; her değişiklik bir hareket kaydı bırakır.
+        // çalışanın elle yaptığı stok hareketi (giriş, fire, sayım). stok bunun dışında sadece talep tedariki (ve ilerideki adımda spesyal) ile değişir;
+        // her değişiklik bir hareket kaydı bırakır.
         public async Task AdjustStockAsync(string userId, Guid ingredientId, StockAdjustmentDto dto, CancellationToken cancellationToken = default)
         {
             if (!Guid.TryParse(userId, out Guid parsedUserId))
@@ -124,11 +133,11 @@ namespace Yummy.Business.Managers
                 var ingredient = await _ingredientRepository.GetByIdAsync(ingredientId, cancellationToken)
                     ?? throw new LogicException("NotFound", "Malzeme bulunamadı.");
 
-                var change = dto.Type switch
+                var (movementType, change) = dto.Type switch
                 {
-                    StockMovementType.StockIn => dto.Quantity,
-                    StockMovementType.Waste => -dto.Quantity,
-                    StockMovementType.CountCorrection => dto.Quantity - ingredient.StockQuantity,
+                    StockAdjustmentType.StockIn => (StockMovementType.StockIn, dto.Quantity),
+                    StockAdjustmentType.Waste => (StockMovementType.Waste, -dto.Quantity),
+                    StockAdjustmentType.CountCorrection => (StockMovementType.CountCorrection, dto.Quantity - ingredient.StockQuantity),
                     _ => throw new LogicException("InvalidType", "Geçersiz stok hareketi türü.")
                 };
 
@@ -145,7 +154,7 @@ namespace Yummy.Business.Managers
                 {
                     StockMovementId = Guid.NewGuid(),
                     IngredientId = ingredient.IngredientId,
-                    Type = dto.Type,
+                    Type = movementType,
                     QuantityChange = change,
                     QuantityAfter = ingredient.StockQuantity,
                     Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),

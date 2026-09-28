@@ -11,7 +11,7 @@ namespace Yummy.Core.DTOs.IngredientDTOs
         /// Waste = fire, quantity kadar stoktan düşülür (örn. bozuldu, döküldü). Stoktaki miktardan fazla fire girilemez.
         /// CountCorrection = sayım düzeltmesi, stok quantity değerine eşitlenir (quantity = sayılan gerçek miktar; 0 girilebilir).
         /// </summary>
-        public StockMovementType Type { get; init; }
+        public StockAdjustmentType Type { get; init; }
 
         /// <summary>
         /// Malzemenin kendi birimiyle miktar (örn. kg ise 2.5 = 2,5 kg). En fazla 3 ondalık basamak.

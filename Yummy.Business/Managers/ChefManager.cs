@@ -17,6 +17,7 @@ using Yummy.Core.IRepositories;
 using Yummy.Core.IUnitOfWork;
 using Yummy.Core.Services;
 using Yummy.Entity;
+using Yummy.Entity.Enums;
 
 namespace Yummy.Business.Managers
 {
@@ -29,18 +30,20 @@ namespace Yummy.Business.Managers
         private readonly IMapper _mapper;
         private IWebHostEnvironment _environment;
         private readonly UserManager<AppUser> _userManager;
+        private readonly IGenericRepository<IngredientRequest> _requestRepository;
 
         // bağlantı işlemleri tek bir kilit altında sıraya girer (düşük trafikli admin işlemi). aynı kullanıcının aynı anda iki profile bağlanması
         // unique index ile de engellenir; kilit bu durumda 500 yerine anlaşılır bir hata mesajı dönülmesini sağlar.
         private const string ChefUserLinkLockKey = "chef-user-link";
 
-        public ChefManager(IGenericRepository<Chef> chefRepository, IUnitOfWork uow, IMapper mapper, IWebHostEnvironment environment, UserManager<AppUser> userManager)
+        public ChefManager(IGenericRepository<Chef> chefRepository, IUnitOfWork uow, IMapper mapper, IWebHostEnvironment environment, UserManager<AppUser> userManager, IGenericRepository<IngredientRequest> requestRepository)
         {
             _chefRepository = chefRepository;
             _uow = uow;
             _mapper = mapper;
             _environment = environment;
             _userManager = userManager;
+            _requestRepository = requestRepository;
         }
 
         public async Task AddAsync(ChefCreateDto dto, CancellationToken cancellationToken = default)
@@ -57,17 +60,27 @@ namespace Yummy.Business.Managers
 
         // şef soft delete ile silinir. hesabı bağlıysa önce bağlantı kaldırılır ve Chef rolü geri alınır;
         // aksi halde silinmiş şefin kullanıcısı şef paneline erişmeye devam eder ve unique index nedeniyle başka bir profile bağlanamaz.
+        // şefin bekleyen malzeme talepleri iptal edilir; aksi halde çalışanlar artık olmayan bir şef için tedarik yapar.
+        // talepler stok kilidi altında değiştiği için o kilit de alınır (sıra: önce bağlantı, sonra stok kilidi; başka hiçbir işlem ters sırayla almaz).
         public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
         {
             Chef chef = null!;
 
-            await _uow.ExecuteInLockedTransactionAsync(ChefUserLinkLockKey, async () =>
+            await _uow.ExecuteInLockedTransactionAsync(new[] { ChefUserLinkLockKey, IngredientManager.StockLockKey }, async () =>
             {
                 chef = await _chefRepository.GetByIdAsync(id, cancellationToken)
                     ?? throw new LogicException("ChefId", "Silinmek istenen şef bulunamadı.");
 
                 if (chef.AppUserId.HasValue)
                     await RemoveUserLinkAsync(chef);
+
+                var pendingRequests = await _requestRepository.GetWhereAsync(r => r.ChefId == chef.ChefId && r.Status == IngredientRequestStatus.Pending, cancellationToken);
+                foreach (var request in pendingRequests)
+                {
+                    request.Status = IngredientRequestStatus.Cancelled;
+                    request.ResponseNote = "Şef profili silindiği için talep iptal edildi.";
+                    _requestRepository.Update(request);
+                }
 
                 _chefRepository.Remove(chef);
                 await _uow.SaveAsync(cancellationToken);

@@ -23,5 +23,9 @@ namespace Yummy.Entity
         // hareketi yapan kullanıcı. kullanıcı silinirse hareket kaydı korunur, sadece bağlantı kopar.
         public Guid? PerformedByUserId { get; set; }
         public AppUser? PerformedByUser { get; set; }
+
+        // hareket bir malzeme talebinin tedarikiyle oluştuysa ilgili talep (RequestSupply). elle yapılan hareketlerde boştur.
+        public Guid? IngredientRequestId { get; set; }
+        public IngredientRequest? IngredientRequest { get; set; }
     }
 }
